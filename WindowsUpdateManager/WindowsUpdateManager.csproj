@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{10AF8E4F-7D7A-44B0-BDB0-9BDF973F57EE}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>WindowsUpdateManager</RootNamespace>
+    <AssemblyName>dnwsus-client</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Framework References -->
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.DirectoryServices" />
+    <Reference Include="System.DirectoryServices.AccountManagement" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Xml" />
+    <!-- PowerShell automation (from GAC / WPS install path) -->
+    <Reference Include="System.Management.Automation">
+      <HintPath>$(SystemRoot)\System32\WindowsPowerShell\v1.0\System.Management.Automation.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Models -->
+    <Compile Include="Models\ServerInfo.cs" />
+    <Compile Include="Models\UpdateInfo.cs" />
+    <Compile Include="Models\InstallResult.cs" />
+    <!-- Theme -->
+    <Compile Include="Theme\DarkTheme.cs" />
+    <!-- Controls -->
+    <Compile Include="Controls\DataGridViewDateTimePickerColumn.cs" />
+    <!-- Helpers -->
+    <Compile Include="Helpers\CsvLogger.cs" />
+    <Compile Include="Helpers\ControlExtensions.cs" />
+    <!-- Services -->
+    <Compile Include="Services\AdDiscoveryService.cs" />
+    <Compile Include="Services\RemoteSessionService.cs" />
+    <Compile Include="Services\UpdateScannerService.cs" />
+    <Compile Include="Services\UpdateInstallerService.cs" />
+    <!-- Forms -->
+    <Compile Include="Forms\LoginForm.cs" />
+    <Compile Include="Forms\MainForm.cs" />
+    <!-- Entry point -->
+    <Compile Include="Program.cs" />
+    <!-- Assembly info -->
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

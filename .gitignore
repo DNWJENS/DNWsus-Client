@@ -1,0 +1,12 @@
+# Build-Ausgaben
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Fertige exe-Dateien (werden von build.ps1 erzeugt)
+Releases/
+
+# Altbestand aus DNWsus (nicht Teil dieses Projekts)
+_archiv/
