@@ -1,24 +1,21 @@
-# Baut DNWsus und legt die fertige exe direkt in den Ordner Releases.
-# Aufruf:  .\build.ps1 1.0.35
+﻿# Baut DNWsus und legt das Ergebnis unter Releases\<Version> ab.
+# Aufruf:  .\build.ps1 2.0.0
 param([Parameter(Mandatory = $true)][string]$Version)
 
 $ErrorActionPreference = 'Stop'
-$root    = $PSScriptRoot
-$proj    = Join-Path $root 'WindowsUpdateManager\WindowsUpdateManager.csproj'
-$msbuild = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe'
-$name    = "dnwsus_v$Version"
+$root   = $PSScriptRoot
+$dotnet = (Get-Command dotnet -ErrorAction SilentlyContinue).Source
+if (-not $dotnet) { $dotnet = 'C:\Program Files\dotnet\dotnet.exe' }
 
-# Versionsnummer in AssemblyInfo.cs und im Fenstertitel nachziehen
-$asm = Join-Path $root 'WindowsUpdateManager\Properties\AssemblyInfo.cs'
-(Get-Content $asm -Raw -Encoding UTF8) -replace '"\d+\.\d+\.\d+\.0"', "`"$Version.0`"" |
-    Set-Content $asm -Encoding UTF8 -NoNewline
-$form = Join-Path $root 'WindowsUpdateManager\Forms\MainForm.cs'
-(Get-Content $form -Raw -Encoding UTF8) -replace 'DNWSUS v\d+\.\d+\.\d+', "DNWSUS v$Version" |
-    Set-Content $form -Encoding UTF8 -NoNewline
+$out = Join-Path $root "Releases\$Version"
+if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 
-& $msbuild $proj /p:Configuration=Release /p:AssemblyName=$name /verbosity:minimal
-if ($LASTEXITCODE -ne 0) { throw "Build fehlgeschlagen (Exit-Code $LASTEXITCODE)." }
+# Server: self-contained, braucht auf dem Zielserver keine .NET-Installation
+& $dotnet publish (Join-Path $root 'src\DnwSus.Server\DnwSus.Server.csproj') `
+    -c Release -p:Version=$Version -o (Join-Path $out 'Server') --nologo -v minimal
+if ($LASTEXITCODE -ne 0) { throw "Build Server fehlgeschlagen (Exit-Code $LASTEXITCODE)." }
 
-$exe = Join-Path $root "WindowsUpdateManager\bin\Release\$name.exe"
-Copy-Item $exe (Join-Path $root 'Releases') -Force
-Write-Host "Fertig: Releases\$name.exe" -ForegroundColor Green
+Copy-Item (Join-Path $root 'setup\install-server.ps1')   $out
+Copy-Item (Join-Path $root 'setup\uninstall-server.ps1') $out
+
+Write-Host "Fertig: Releases\$Version" -ForegroundColor Green

@@ -1,0 +1,95 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Clients";
+    var s = Model.Snapshot;
+    bool showGroupColumn = Model.Tab == "uebersicht";
+    bool ungroupedTab = Model.Tab == "ohne";
+}
+
+<nav class="tabs">
+    <a class="@(Model.Tab == "uebersicht" ? "active" : "")" href="?tab=uebersicht">Übersicht <span class="count">@s.Clients.Count</span></a>
+    @foreach (var g in s.Groups)
+    {
+        <a class="@(Model.Tab == "grp" + g.Number ? "active" : "")" href="?tab=grp@(g.Number)">@g.Name <span class="count">@Model.CountInGroup(g.Number)</span></a>
+    }
+    <a class="@(ungroupedTab ? "active" : "") @(Model.Ungrouped > 0 ? "warn" : "")" href="?tab=ohne">Ohne Gruppe <span class="count">@Model.Ungrouped</span></a>
+</nav>
+
+@if (s.Error != null)
+{
+    <div class="banner error">@s.Error</div>
+}
+@foreach (var g in s.Groups.Where(g => !g.Found && s.Error == null))
+{
+    <div class="banner warn">Die Gruppe <b>@g.Name</b> wurde im AD nicht gefunden.</div>
+}
+@if (Model.Conflicts > 0)
+{
+    <div class="banner error">@Model.Conflicts Client(s) sind in mehreren Update-Gruppen. Bitte im AD bereinigen – diese Clients werden später nicht aktualisiert.</div>
+}
+@if (Model.CurrentGroup is { HiddenMembers: > 0 } cg)
+{
+    <div class="banner info">@cg.HiddenMembers Mitglied(er) von @cg.Name sind keine aktiven Clients (Server, deaktiviert o. Ä.) und werden nicht angezeigt.</div>
+}
+
+<div class="toolbar">
+    <input id="search" type="search" placeholder="Suchen (Name, Betriebssystem, Gruppe …)" autocomplete="off" />
+    <label class="check"><input id="hideStale" type="checkbox" /> Veraltete ausblenden</label>
+    <span class="muted" id="visibleCount"></span>
+    <span class="spacer"></span>
+    <span class="muted">AD-Stand: @s.LoadedAt.ToString("dd.MM.yyyy HH:mm:ss")</span>
+    <a class="button" href="?tab=@Model.Tab&refresh=true">AD neu laden</a>
+</div>
+
+<table class="grid" id="clients">
+    <thead>
+        <tr>
+            <th>Name</th>
+            @if (showGroupColumn) { <th>Gruppe</th> }
+            <th>Betriebssystem</th>
+            @if (!ungroupedTab)
+            {
+                <th title="kommt mit dem Agenten (Etappe 2)">Ausstehend</th>
+                <th title="kommt mit dem Agenten (Etappe 2)">Uptime</th>
+                <th title="kommt mit dem Agenten (Etappe 2)">IP</th>
+            }
+            <th title="kommt mit dem Agenten (Etappe 2)">Letzter Benutzer</th>
+            <th title="kommt mit dem Agenten (Etappe 2)">Letzter Serverkontakt</th>
+            @if (!ungroupedTab) { <th title="kommt mit dem Agenten (Etappe 2)">Fehler</th> }
+            <th title="lastLogonTimestamp aus dem AD, wird nur etwa alle 14 Tage aktualisiert">Letzte AD-Anmeldung</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var c in Model.Rows)
+        {
+            string groupLabel = Model.GroupLabel(c);
+            <tr class="@(c.IsStale ? "stale" : "")" data-stale="@(c.IsStale ? "1" : "0")"
+                data-search="@($"{c.Name} {c.DnsName} {c.OperatingSystem} {c.OsVersion} {groupLabel}".ToLowerInvariant())">
+                <td title="@c.DistinguishedName"><b>@c.Name</b></td>
+                @if (showGroupColumn)
+                {
+                    <td class="@(c.Groups.Count == 0 ? "warn" : c.Groups.Count > 1 ? "error" : "")">
+                        @(c.Groups.Count > 1 ? "Konflikt: " : "")@groupLabel
+                    </td>
+                }
+                <td>@c.OperatingSystem <span class="muted">@c.OsVersion</span></td>
+                @if (!ungroupedTab)
+                {
+                    <td class="muted">—</td>
+                    <td class="muted">—</td>
+                    <td class="muted">—</td>
+                }
+                <td class="muted">—</td>
+                <td class="muted">kein Agent</td>
+                @if (!ungroupedTab) { <td class="muted">—</td> }
+                <td title="@IndexModel.FormatDate(c.LastAdLogon)">@IndexModel.FormatAge(c.LastAdLogon)</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model.Rows.Count == 0)
+{
+    <p class="muted empty">Keine Clients in dieser Ansicht.</p>
+}

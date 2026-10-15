@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DNWsus – @ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="top">
+        <span class="brand">DNWsus</span>
+        <span class="muted">Windows-Updates für Clients</span>
+        <span class="spacer"></span>
+        <span class="muted">@User.Identity?.Name</span>
+    </header>
+    <main>
+        @RenderBody()
+    </main>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+</body>
+</html>

@@ -10,3 +10,11 @@ Releases/
 
 # Altbestand aus DNWsus (nicht Teil dieses Projekts)
 _archiv/
+
+# Zertifikate und Schlüssel gehören nie ins Repo
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+*.crt

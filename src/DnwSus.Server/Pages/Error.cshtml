@@ -1,0 +1,13 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Fehler";
+}
+
+<div class="banner error">
+    <b>Bei der Verarbeitung der Anfrage ist ein Fehler aufgetreten.</b>
+    @if (Model.ShowRequestId)
+    {
+        <div class="muted">Anfrage-ID: <code>@Model.RequestId</code> – Details stehen in der Ereignisanzeige (Anwendung, Quelle DnwSus.Server).</div>
+    }
+</div>

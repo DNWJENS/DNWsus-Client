@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>DnwSus.Server</RootNamespace>
+    <AssemblyName>DnwSus.Server</AssemblyName>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <SatelliteResourceLanguages>de</SatelliteResourceLanguages>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <Version>2.0.0</Version>
+    <Product>DNWsus</Product>
+    <Company>DNW</Company>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.13" />
+    <PackageReference Include="System.DirectoryServices" Version="10.0.13" />
+  </ItemGroup>
+
+</Project>
