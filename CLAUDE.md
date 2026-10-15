@@ -8,6 +8,10 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
 ## Regeln
 - Gebaut wird immer mit `.\build.ps1 <Version>` (z. B. `.\build.ps1 2.0.0`). Ergebnis liegt in `Releases\<Version>\`.
 - Erst informieren und Vorgehen besprechen, dann umsetzen.
+- **Auf dem Entwicklungsrechner nichts ausführen oder testen.** Er steht in einer abgekapselten Arbeitsumgebung.
+  Erlaubt sind nur Code schreiben, bauen (`build.ps1`) und git. Gebaute Programme (Server, Agent, MSI) nie starten,
+  keine AD-Abfragen, keine Zertifikate, Dienste, Ports oder sonstige Systemänderungen. Tests werden als Anleitung
+  für eine Testumgebung beschrieben und dort vom Benutzer durchgeführt.
 - Nach jedem abgeschlossenen Schritt: bauen, git commit, **git push** (Repo immer synchron halten).
 - Keine verschleiert wirkenden Konstrukte (z. B. `powershell -EncodedCommand`/Base64, VBS-Starter, `conhost --headless`):
   ein Versuch damit (v1.0.35 im Original) wurde von Windows Defender gelöscht. Remote-/Hilfs-Scripts immer als lesbare Datei.
