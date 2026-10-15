@@ -18,11 +18,11 @@ namespace WindowsUpdateManager.Services
         private const string WuaScriptContent =
             "$ErrorActionPreference = 'Stop'\r\n" +
             "$base    = \"$env:SystemRoot\\Temp\"\r\n" +
-            "$outFile = \"$base\\dnwc_result.json\"\r\n" +
+            "$outFile = \"$base\\wum_result.json\"\r\n" +
             "$installedCount = 0\r\n" +
             "$rebootRequired = $false\r\n" +
             "try {\r\n" +
-            "    $kbArray = (Get-Content \"$base\\dnwc_kblist.txt\" -ErrorAction Stop) -split ','\r\n" +
+            "    $kbArray = (Get-Content \"$base\\wum_kblist.txt\" -ErrorAction Stop) -split ','\r\n" +
             "    $session  = New-Object -ComObject Microsoft.Update.Session\r\n" +
             "    $searcher = $session.CreateUpdateSearcher()\r\n" +
             "    $found    = $searcher.Search(\"IsInstalled=0 and Type='Software'\")\r\n" +
@@ -56,11 +56,11 @@ namespace WindowsUpdateManager.Services
         // Orchestrator: drops KB list + WUA script, fires scheduled task as SYSTEM, waits, reads result.
         private const string InstallScriptBody =
             "$ErrorActionPreference = 'Stop'\r\n" +
-            "$taskName = 'DNWC_Install_' + [System.Guid]::NewGuid().ToString('N').Substring(0,8)\r\n" +
+            "$taskName = 'WUM_' + [System.Guid]::NewGuid().ToString('N').Substring(0,8)\r\n" +
             "$base    = \"$env:SystemRoot\\Temp\"\r\n" +
-            "$kbFile  = \"$base\\dnwc_kblist.txt\"\r\n" +
-            "$ps1File = \"$base\\dnwc_install.ps1\"\r\n" +
-            "$outFile = \"$base\\dnwc_result.json\"\r\n" +
+            "$kbFile  = \"$base\\wum_kblist.txt\"\r\n" +
+            "$ps1File = \"$base\\wum_install.ps1\"\r\n" +
+            "$outFile = \"$base\\wum_result.json\"\r\n" +
             "try {\r\n" +
             "    [System.IO.File]::WriteAllText($kbFile,  $KBList,    [System.Text.Encoding]::UTF8)\r\n" +
             "    [System.IO.File]::WriteAllText($ps1File, $WuaScript, [System.Text.Encoding]::UTF8)\r\n" +
@@ -95,9 +95,9 @@ namespace WindowsUpdateManager.Services
         private const string ScheduledInstallScriptBody =
             "$ErrorActionPreference = 'Stop'\r\n" +
             "$base     = \"$env:SystemRoot\\Temp\"\r\n" +
-            "$kbFile   = \"$base\\dnwc_kblist.txt\"\r\n" +
-            "$ps1File  = \"$base\\dnwc_install.ps1\"\r\n" +
-            "$taskName = 'DNWC_Sched_' + [System.Guid]::NewGuid().ToString('N').Substring(0,8)\r\n" +
+            "$kbFile   = \"$base\\wum_kblist.txt\"\r\n" +
+            "$ps1File  = \"$base\\wum_install.ps1\"\r\n" +
+            "$taskName = 'WUM_Sched_' + [System.Guid]::NewGuid().ToString('N').Substring(0,8)\r\n" +
             "try {\r\n" +
             "    [System.IO.File]::WriteAllText($kbFile,  $KBList,    [System.Text.Encoding]::UTF8)\r\n" +
             "    [System.IO.File]::WriteAllText($ps1File, $WuaScript, [System.Text.Encoding]::UTF8)\r\n" +
@@ -223,7 +223,7 @@ namespace WindowsUpdateManager.Services
                             string safeServer = capturedServer.Name.Replace(' ', '_').Replace('\\', '_');
                             string rebootScript =
                                 "$ErrorActionPreference = 'Stop'\r\n" +
-                                "$taskName  = 'DNWC_Reboot_" + safeServer + "'\r\n" +
+                                "$taskName  = 'WUM_Reboot_" + safeServer + "'\r\n" +
                                 "Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue\r\n" +
                                 "$psExe    = \"$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\"\r\n" +
                                 "$action   = New-ScheduledTaskAction -Execute $psExe -Argument '-NonInteractive -NoProfile -Command \"Restart-Computer -Force\"'\r\n" +
@@ -247,13 +247,13 @@ namespace WindowsUpdateManager.Services
                             // No explicit time set → reboot immediately via SYSTEM scheduled task
                             string immediateScript =
                                 "$ErrorActionPreference = 'Stop'\r\n" +
-                                "Unregister-ScheduledTask -TaskName 'DNWC_ImmediateReboot' -Confirm:$false -ErrorAction SilentlyContinue\r\n" +
+                                "Unregister-ScheduledTask -TaskName 'WUM_ImmediateReboot' -Confirm:$false -ErrorAction SilentlyContinue\r\n" +
                                 "$psExe    = \"$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\"\r\n" +
                                 "$action   = New-ScheduledTaskAction -Execute $psExe -Argument '-NonInteractive -NoProfile -Command \"Restart-Computer -Force\"'\r\n" +
                                 "$trigger   = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds(10)\r\n" +
                                 "$settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -StartWhenAvailable\r\n" +
                                 "$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest\r\n" +
-                                "Register-ScheduledTask -TaskName 'DNWC_ImmediateReboot' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null\r\n";
+                                "Register-ScheduledTask -TaskName 'WUM_ImmediateReboot' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null\r\n";
                             try
                             {
                                 await _remoteService.InvokeScriptAsync(capturedServer.Name, immediateScript, 30);

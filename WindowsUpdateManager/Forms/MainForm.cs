@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -103,7 +103,7 @@ namespace WindowsUpdateManager.Forms
         // =======================================================================
         private void BuildUI()
         {
-            Text            = "DNWsus-Client v1.0.0";
+            Text            = "DNWSUS v1.0.34";
             Size            = new Size(1200, 750);
             StartPosition   = FormStartPosition.CenterScreen;
             MinimumSize     = new Size(900, 600);

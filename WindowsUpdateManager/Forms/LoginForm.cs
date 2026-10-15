@@ -24,7 +24,7 @@ namespace WindowsUpdateManager.Forms
 
         private void InitializeComponent()
         {
-            Text            = "DNWsus-Client – Anmeldung";
+            Text            = "Windows Update Manager – Anmeldung";
             Size            = new Size(420, 300);
             StartPosition   = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -36,7 +36,7 @@ namespace WindowsUpdateManager.Forms
 
             // ---- Logo / Header label ----
             var lblLogo = new Label();
-            lblLogo.Text      = "DNWsus-Client";
+            lblLogo.Text      = "Windows Update Manager";
             lblLogo.Font      = new Font("Segoe UI", 14f, FontStyle.Bold);
             lblLogo.ForeColor = DarkTheme.Accent;
             lblLogo.BackColor = Color.Transparent;

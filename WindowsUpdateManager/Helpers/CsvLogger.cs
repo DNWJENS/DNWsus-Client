@@ -28,12 +28,12 @@ namespace WindowsUpdateManager.Helpers
             catch
             {
                 logDirectory = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "DNWsus-Client-Logs");
+                    Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "WU-Manager-Logs");
                 if (!Directory.Exists(logDirectory))
                     Directory.CreateDirectory(logDirectory);
             }
 
-            string fileName = "dnwsus-client_" + DateTime.Now.ToString("yyyy-MM-dd") + ".csv";
+            string fileName = "wu-manager_" + DateTime.Now.ToString("yyyy-MM-dd") + ".csv";
             _logFilePath = Path.Combine(logDirectory, fileName);
 
             try
