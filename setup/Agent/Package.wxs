@@ -1,0 +1,86 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="DNWsus Agent"
+           Manufacturer="DNW"
+           Version="$(var.Version)"
+           UpgradeCode="{6D3F2B1A-8C4E-4F7A-9B21-3E5D7C9A1F42}"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Compressed="yes">
+
+    <SummaryInformation Description="DNWsus Agent – Windows-Updates nach Vorgabe des DNWsus-Servers" />
+    <MajorUpgrade DowngradeErrorMessage="Eine neuere Version des DNWsus Agent ist bereits installiert." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Werden vom DNWsus-Server beim Download der MSI gesetzt (oder per msiexec ... DNWSUS_SERVERURL=...) -->
+    <Property Id="DNWSUS_SERVERURL" Value="NICHT_GESETZT" Secure="yes" />
+    <Property Id="DNWSUS_CERTHASH" Value="NICHT_GESETZT" Secure="yes" />
+
+    <PropertyRef Id="WIX_IS_NETFRAMEWORK_48_OR_LATER_INSTALLED" />
+
+    <Launch Condition="Installed OR WIX_IS_NETFRAMEWORK_48_OR_LATER_INSTALLED"
+            Message="Der DNWsus Agent benötigt .NET Framework 4.8 (in allen aktuellen Versionen von Windows 10 und 11 enthalten)." />
+    <Launch Condition="Installed OR MsiNTProductType = 1"
+            Message="Der DNWsus Agent ist nur für Windows-Clients (Windows 10/11) vorgesehen, nicht für Server." />
+    <Launch Condition="Installed OR (DNWSUS_SERVERURL &lt;&gt; &quot;NICHT_GESETZT&quot; AND DNWSUS_CERTHASH &lt;&gt; &quot;NICHT_GESETZT&quot;)"
+            Message="Diese MSI ist an keinen DNWsus-Server gebunden. Bitte die Agent-MSI im DNWsus-Dashboard (Seite „Agent“) herunterladen." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="DnwDir" Name="DNWsus">
+        <Directory Id="INSTALLFOLDER" Name="Agent" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="AgentFiles" Directory="INSTALLFOLDER">
+      <Component Id="AgentService" Bitness="always64">
+        <File Id="AgentExe" Source="$(var.AgentDir)\DnwSus.Agent.exe" KeyPath="yes" />
+        <ServiceInstall Id="AgentServiceInstall"
+                        Name="DnwSusAgent"
+                        DisplayName="DNWsus Agent"
+                        Description="Installiert Windows-Updates nach Vorgabe des DNWsus-Servers und meldet den Update-Stand."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="LocalSystem"
+                        Vital="yes">
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="60"
+                              ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="AgentServiceControl" Name="DnwSusAgent" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+
+      <Component Id="AgentConfig" Bitness="always64">
+        <File Id="AgentExeConfig" Source="$(var.AgentDir)\DnwSus.Agent.exe.config" KeyPath="yes" />
+      </Component>
+
+      <Component Id="HinweisExe" Bitness="always64">
+        <File Id="HinweisExeFile" Source="$(var.HinweisDir)\DnwSus.Hinweis.exe" KeyPath="yes" />
+      </Component>
+
+      <Component Id="HinweisConfig" Bitness="always64">
+        <File Id="HinweisExeConfig" Source="$(var.HinweisDir)\DnwSus.Hinweis.exe.config" KeyPath="yes" />
+      </Component>
+
+      <!-- Server-Adresse und Zertifikat für den Agenten; eine neue MSI (z. B. nach Serverumzug) überschreibt sie -->
+      <Component Id="AgentRegistry" Bitness="always64">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\DNWsus\Agent">
+          <RegistryValue Name="ServerUrl" Type="string" Value="[DNWSUS_SERVERURL]" KeyPath="yes" />
+          <RegistryValue Name="CertHash" Type="string" Value="[DNWSUS_CERTHASH]" />
+        </RegistryKey>
+        <!-- Daten des Agenten (Log, Status) beim Deinstallieren entfernen, damit keine Reste bleiben -->
+        <util:RemoveFolderEx On="uninstall" Property="DNWSUS_DATADIR" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="DNWsus Agent">
+      <ComponentGroupRef Id="AgentFiles" />
+    </Feature>
+
+    <!-- Datenordner des Agenten (Log, Status) – wird beim Deinstallieren entfernt (siehe AgentRegistry) -->
+    <SetProperty Id="DNWSUS_DATADIR" Value="[CommonAppDataFolder]DNWsus\Agent\" Before="AppSearch" Sequence="both" />
+  </Package>
+</Wix>

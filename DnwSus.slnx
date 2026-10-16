@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/DnwSus.Agent/DnwSus.Agent.csproj" />
+    <Project Path="src/DnwSus.Hinweis/DnwSus.Hinweis.csproj" />
     <Project Path="src/DnwSus.Server/DnwSus.Server.csproj" />
   </Folder>
 </Solution>

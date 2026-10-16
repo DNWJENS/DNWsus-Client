@@ -1,0 +1,74 @@
+@page
+@model AgentModel
+@{
+    ViewData["Title"] = "Agent";
+}
+
+<h2>Agent verteilen</h2>
+
+<section class="panels">
+    <div class="panel">
+        <h3>Agent-MSI</h3>
+        @if (Model.TemplateExists)
+        {
+            <p>Die MSI ist fest an diesen Server gebunden – sie enthält seine Adresse und den Fingerabdruck seines Zertifikats.</p>
+            <p><a class="button" href="/download/DnwSus-Agent.msi">DnwSus-Agent.msi herunterladen (v@Model.AgentVersion)</a></p>
+            <table class="mini">
+                <tr><td>Server-Adresse</td><td><code>@Model.Identity.Url</code></td></tr>
+                <tr><td>Zertifikat (SHA-256)</td><td><code class="wrap">@Model.Identity.CertificateHash</code></td></tr>
+                <tr><td>Gültig bis</td><td>@Model.Identity.Certificate.NotAfter.ToString("dd.MM.yyyy")</td></tr>
+            </table>
+        }
+        else
+        {
+            <div class="banner error">Die Agent-Vorlage fehlt im Installationsordner. Bitte die Server-MSI erneut installieren.</div>
+        }
+    </div>
+
+    <div class="panel">
+        <h3>Stand</h3>
+        <table class="mini">
+            <tr><td>Agenten, die sich schon gemeldet haben</td><td>@Model.Reporting</td></tr>
+            <tr><td>davon in den letzten 24 Stunden</td><td>@Model.ReportingToday</td></tr>
+        </table>
+        <p class="muted">Clients ohne Agent stehen in der Übersicht mit „kein Agent“.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <h3>Verteilung per GPO</h3>
+    <ol>
+        <li>MSI herunterladen und auf eine Freigabe legen, die <b>Domänencomputer</b> lesen dürfen
+            (z. B. <code>\\server\Software$\DNWsus\DnwSus-Agent.msi</code>). Pfad als UNC-Pfad angeben, nicht als Laufwerksbuchstabe.</li>
+        <li>Neue GPO anlegen und mit der OU der Clients verknüpfen (oder per Sicherheitsfilter auf die Update-Gruppen beschränken).</li>
+        <li><i>Computerkonfiguration → Richtlinien → Softwareeinstellungen → Softwareinstallation</i> → Neu → Paket → MSI auswählen → <b>Zugewiesen</b>.</li>
+        <li>Die Installation läuft beim nächsten Neustart des Clients. Danach meldet sich der Agent innerhalb von 5 Minuten hier.</li>
+        <li><b>Update des Agenten:</b> neue MSI herunterladen, in der GPO als neues Paket hinzufügen und unter <i>Aktualisierungen</i> das alte Paket angeben
+            (bzw. einfach das alte Paket ersetzen). Die MSI ersetzt vorhandene Versionen selbst.</li>
+    </ol>
+    <p class="muted">Manuelle Installation: MSI auf dem Client per Doppelklick ausführen (Administratorrechte nötig).
+        Ein Agent ohne Update-Gruppe meldet nur seinen Stand und installiert nichts.</p>
+    <p class="muted">Voraussetzung auf den Clients: Windows 10/11 mit .NET Framework 4.8 (in allen aktuellen Versionen enthalten),
+        Verbindung zu diesem Server auf Port @(new Uri(Model.Identity.Url).Port) (im Büro oder per VPN).</p>
+</section>
+
+<h3>Letzte Ereignisse</h3>
+@if (Model.RecentEvents.Count == 0)
+{
+    <p class="muted">Noch keine Einträge.</p>
+}
+else
+{
+    <table class="grid">
+        <tbody>
+            @foreach (var e in Model.RecentEvents)
+            {
+                <tr>
+                    <td>@e.Time.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td><a href="/Client?name=@e.Client">@e.Client</a></td>
+                    <td class="wrap @(e.IsError ? "error" : "")">@e.Text</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

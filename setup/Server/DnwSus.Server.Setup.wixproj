@@ -1,0 +1,18 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <!-- Server-MSI: installiert den DNWsus-Server (self-contained) als Windows-Dienst inkl. Agent-Vorlage. -->
+  <PropertyGroup>
+    <OutputName>DnwSus-Server</OutputName>
+    <Platform>x64</Platform>
+    <Version Condition="'$(Version)' == ''">2.0.0</Version>
+    <PublishDir Condition="'$(PublishDir)' == ''">..\..\Releases\_staging\Server</PublishDir>
+    <DefineConstants>Version=$(Version);PublishDir=$(PublishDir)</DefineConstants>
+    <SuppressValidation>true</SuppressValidation>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Firewall.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+</Project>

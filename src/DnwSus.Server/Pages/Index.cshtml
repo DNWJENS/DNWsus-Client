@@ -3,19 +3,26 @@
 @{
     ViewData["Title"] = "Clients";
     var s = Model.Snapshot;
-    bool showGroupColumn = Model.Tab == "uebersicht";
-    bool ungroupedTab = Model.Tab == "ohne";
+    bool overview = Model.Tab == "uebersicht";
+    bool ungrouped = Model.Tab == "ohne";
+    bool groupTab = Model.GroupNumber > 0;
+    string[] dayNames = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" };
+    int[] dayOrder = { 1, 2, 3, 4, 5, 6, 0 };
 }
 
 <nav class="tabs">
-    <a class="@(Model.Tab == "uebersicht" ? "active" : "")" href="?tab=uebersicht">Übersicht <span class="count">@s.Clients.Count</span></a>
+    <a class="@(overview ? "active" : "")" href="?tab=uebersicht">Übersicht <span class="count">@s.Clients.Count</span></a>
     @foreach (var g in s.Groups)
     {
         <a class="@(Model.Tab == "grp" + g.Number ? "active" : "")" href="?tab=grp@(g.Number)">@g.Name <span class="count">@Model.CountInGroup(g.Number)</span></a>
     }
-    <a class="@(ungroupedTab ? "active" : "") @(Model.Ungrouped > 0 ? "warn" : "")" href="?tab=ohne">Ohne Gruppe <span class="count">@Model.Ungrouped</span></a>
+    <a class="@(ungrouped ? "active" : "") @(Model.Ungrouped > 0 ? "warn" : "")" href="?tab=ohne">Ohne Gruppe <span class="count">@Model.Ungrouped</span></a>
 </nav>
 
+@if (Model.Message != null)
+{
+    <div class="banner info">@Model.Message</div>
+}
 @if (s.Error != null)
 {
     <div class="banner error">@s.Error</div>
@@ -26,68 +33,179 @@
 }
 @if (Model.Conflicts > 0)
 {
-    <div class="banner error">@Model.Conflicts Client(s) sind in mehreren Update-Gruppen. Bitte im AD bereinigen – diese Clients werden später nicht aktualisiert.</div>
+    <div class="banner error">@Model.Conflicts Client(s) sind in mehreren Update-Gruppen. Bitte im AD bereinigen – diese Clients werden nicht aktualisiert.</div>
 }
 @if (Model.CurrentGroup is { HiddenMembers: > 0 } cg)
 {
     <div class="banner info">@cg.HiddenMembers Mitglied(er) von @cg.Name sind keine aktiven Clients (Server, deaktiviert o. Ä.) und werden nicht angezeigt.</div>
 }
 
-<div class="toolbar">
-    <input id="search" type="search" placeholder="Suchen (Name, Betriebssystem, Gruppe …)" autocomplete="off" />
-    <label class="check"><input id="hideStale" type="checkbox" /> Veraltete ausblenden</label>
-    <span class="muted" id="visibleCount"></span>
-    <span class="spacer"></span>
-    <span class="muted">AD-Stand: @s.LoadedAt.ToString("dd.MM.yyyy HH:mm:ss")</span>
-    <a class="button" href="?tab=@Model.Tab&refresh=true">AD neu laden</a>
-</div>
+@if (groupTab)
+{
+    <section class="panels">
+        <div class="panel">
+            <h3>Verhalten</h3>
+            <p>@IndexModel.Behaviour[Model.GroupNumber]</p>
+            <p class="muted">Ist niemand angemeldet, startet der PC sofort neu. Offline-Clients installieren, sobald sie sich wieder melden.</p>
+        </div>
 
-<table class="grid" id="clients">
-    <thead>
-        <tr>
-            <th>Name</th>
-            @if (showGroupColumn) { <th>Gruppe</th> }
-            <th>Betriebssystem</th>
-            @if (!ungroupedTab)
+        <div class="panel">
+            <h3>Zeitpläne</h3>
+            @if (Model.Schedules.Count == 0)
             {
-                <th title="kommt mit dem Agenten (Etappe 2)">Ausstehend</th>
-                <th title="kommt mit dem Agenten (Etappe 2)">Uptime</th>
-                <th title="kommt mit dem Agenten (Etappe 2)">IP</th>
+                <p class="muted">Keine Zeitpläne – Läufe nur manuell.</p>
             }
-            <th title="kommt mit dem Agenten (Etappe 2)">Letzter Benutzer</th>
-            <th title="kommt mit dem Agenten (Etappe 2)">Letzter Serverkontakt</th>
-            @if (!ungroupedTab) { <th title="kommt mit dem Agenten (Etappe 2)">Fehler</th> }
-            <th title="lastLogonTimestamp aus dem AD, wird nur etwa alle 14 Tage aktualisiert">Letzte AD-Anmeldung</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var c in Model.Rows)
+            <ul class="plain">
+                @foreach (var sch in Model.Schedules)
+                {
+                    <li>
+                        <form method="post" asp-page-handler="DeleteSchedule" class="inline" onsubmit="return confirm('Zeitplan löschen?');">
+                            <input type="hidden" name="group" value="@Model.GroupNumber" />
+                            <input type="hidden" name="id" value="@sch.Id" />
+                            @sch.Description <span class="muted">– nächster: @sch.NextAfter(DateTime.Now).ToString("dd.MM. HH:mm")</span>
+                            <button class="link" type="submit">löschen</button>
+                        </form>
+                    </li>
+                }
+            </ul>
+            <form method="post" asp-page-handler="AddSchedule" class="schedule-form">
+                <input type="hidden" name="group" value="@Model.GroupNumber" />
+                <select name="kind" id="scheduleKind">
+                    <option value="woechentlich">Wöchentlich</option>
+                    <option value="patchday">Nach Patchday</option>
+                </select>
+                <span id="weekdays">
+                    @foreach (var d in dayOrder)
+                    {
+                        <label class="check"><input type="checkbox" name="days" value="@d" />@dayNames[d]</label>
+                    }
+                </span>
+                <span id="patchdayOffset" hidden>+ <input type="number" name="offset" min="0" max="27" value="2" class="small" /> Tage</span>
+                um <input type="time" name="time" value="12:00" required />
+                <button class="button" type="submit">Hinzufügen</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h3>Letzte Läufe</h3>
+            @if (Model.Runs.Count == 0)
+            {
+                <p class="muted">Noch keine Läufe.</p>
+            }
+            <table class="mini">
+                @foreach (var run in Model.Runs.Take(8))
+                {
+                    <tr class="@(run.Cancelled ? "muted" : "")">
+                        <td>#@run.Id</td>
+                        <td>@run.StartAt.ToString("dd.MM. HH:mm")</td>
+                        <td>@(run.Client ?? "ganze Gruppe")</td>
+                        <td title="@run.CreatedBy">@run.Source</td>
+                        <td>@run.DoneCount erledigt</td>
+                        <td>
+                            @if (run.Cancelled)
+                            {
+                                <span>beendet</span>
+                            }
+                            else
+                            {
+                                <form method="post" asp-page-handler="CancelRun" class="inline" onsubmit="return confirm('Lauf #@run.Id beenden? Clients, die ihn noch nicht abgeholt haben, installieren dann nicht mehr.');">
+                                    <input type="hidden" name="group" value="@Model.GroupNumber" />
+                                    <input type="hidden" name="id" value="@run.Id" />
+                                    <button class="link" type="submit">beenden</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </table>
+        </div>
+    </section>
+}
+
+<form method="post" id="clientForm">
+    <input type="hidden" name="tab" value="@Model.Tab" />
+    <input type="hidden" name="group" value="@Model.GroupNumber" />
+
+    <div class="toolbar">
+        <input id="search" type="search" placeholder="Suchen (Name, Benutzer, IP, Betriebssystem …)" autocomplete="off" />
+        <label class="check"><input id="hideStale" type="checkbox" /> Veraltete ausblenden</label>
+        <span class="muted" id="visibleCount"></span>
+        <span class="spacer"></span>
+        <span class="muted">AD-Stand: @s.LoadedAt.ToString("HH:mm:ss")</span>
+        <a class="button secondary" href="?tab=@Model.Tab&refresh=true">AD neu laden</a>
+    </div>
+
+    <div class="toolbar actions">
+        @if (groupTab)
         {
-            string groupLabel = Model.GroupLabel(c);
-            <tr class="@(c.IsStale ? "stale" : "")" data-stale="@(c.IsStale ? "1" : "0")"
-                data-search="@($"{c.Name} {c.DnsName} {c.OperatingSystem} {c.OsVersion} {groupLabel}".ToLowerInvariant())">
-                <td title="@c.DistinguishedName"><b>@c.Name</b></td>
-                @if (showGroupColumn)
-                {
-                    <td class="@(c.Groups.Count == 0 ? "warn" : c.Groups.Count > 1 ? "error" : "")">
-                        @(c.Groups.Count > 1 ? "Konflikt: " : "")@groupLabel
-                    </td>
-                }
-                <td>@c.OperatingSystem <span class="muted">@c.OsVersion</span></td>
-                @if (!ungroupedTab)
-                {
-                    <td class="muted">—</td>
-                    <td class="muted">—</td>
-                    <td class="muted">—</td>
-                }
-                <td class="muted">—</td>
-                <td class="muted">kein Agent</td>
-                @if (!ungroupedTab) { <td class="muted">—</td> }
-                <td title="@IndexModel.FormatDate(c.LastAdLogon)">@IndexModel.FormatAge(c.LastAdLogon)</td>
-            </tr>
+            <label>Updatestart <input type="datetime-local" name="startAt" title="leer = sofort" /></label>
+            <button class="button" asp-page-handler="Install" name="whole" value="true"
+                    onclick="return confirm('Updates auf allen Clients der Gruppe @Model.CurrentGroup?.Name installieren?');">Ganze Gruppe installieren</button>
+            <button class="button" asp-page-handler="Install" name="whole" value="false"
+                    onclick="return confirmSelected('Updates auf den ausgewählten Clients installieren?');">Ausgewählte installieren</button>
         }
-    </tbody>
-</table>
+        <button class="button secondary" asp-page-handler="Scan" onclick="return confirmSelected(null);">Ausgewählte neu scannen</button>
+    </div>
+
+    <table class="grid" id="clients">
+        <thead>
+            <tr>
+                <th class="sel"><input type="checkbox" id="selectAll" title="Alle sichtbaren auswählen" /></th>
+                <th>Name</th>
+                @if (overview) { <th>Gruppe</th> }
+                <th>Status</th>
+                @if (groupTab) { <th>Lauf</th> }
+                <th>Ausstehend</th>
+                @if (!ungrouped)
+                {
+                    <th>Uptime</th>
+                    <th>IP</th>
+                }
+                <th>Letzter Benutzer</th>
+                <th>Letzter Serverkontakt</th>
+                @if (!ungrouped) { <th>Fehler</th> }
+                <th>Betriebssystem</th>
+                <th title="lastLogonTimestamp aus dem AD, wird nur etwa alle 14 Tage aktualisiert">AD-Anmeldung</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                var c = row.Ad;
+                var st = row.Status;
+                string groupLabel = Model.GroupLabel(c);
+                <tr class="@(c.IsStale ? "stale" : "")" data-stale="@(c.IsStale ? "1" : "0")"
+                    data-search="@($"{c.Name} {c.DnsName} {c.OperatingSystem} {groupLabel} {st?.UserText} {st?.IpAddresses}".ToLowerInvariant())">
+                    <td class="sel"><input type="checkbox" name="selected" value="@c.Name" /></td>
+                    <td title="@c.DistinguishedName"><a href="/Client?name=@c.Name"><b>@c.Name</b></a></td>
+                    @if (overview)
+                    {
+                        <td class="@(c.Groups.Count == 0 ? "warn" : c.Groups.Count > 1 ? "error" : "")">@(c.Groups.Count > 1 ? "Konflikt: " : "")@groupLabel</td>
+                    }
+                    <td class="@(st?.RebootPendingSince != null ? "warn" : "")">@IndexModel.StateText(st)</td>
+                    @if (groupTab)
+                    {
+                        <td>@(row.PendingRunStart == null ? "—" : row.PendingRunStart > DateTime.Now ? "geplant " + row.PendingRunStart.Value.ToString("dd.MM. HH:mm") : "offen")</td>
+                    }
+                    <td title="@(st?.LastScan == null ? "" : "Scan: " + IndexModel.FormatDate(st.LastScan))">@(st?.LastScan == null ? "—" : st.PendingCount.ToString())</td>
+                    @if (!ungrouped)
+                    {
+                        <td>@(st?.UptimeText ?? "—")</td>
+                        <td>@(string.IsNullOrEmpty(st?.IpAddresses) ? "—" : st.IpAddresses)</td>
+                    }
+                    <td>@(string.IsNullOrEmpty(st?.UserText) ? "—" : st.UserText)</td>
+                    <td class="@(IndexModel.ContactIsOld(st) ? "warn" : "")" title="@IndexModel.FormatDate(st?.LastContact)">@(st?.LastContact == null ? "nie" : IndexModel.FormatAge(st.LastContact))</td>
+                    @if (!ungrouped)
+                    {
+                        <td class="error" title="@st?.LastError">@(string.IsNullOrEmpty(st?.LastError) ? "" : (st.LastError.Length > 40 ? st.LastError[..40] + "…" : st.LastError))</td>
+                    }
+                    <td>@c.OperatingSystem <span class="muted">@c.OsVersion</span></td>
+                    <td title="@IndexModel.FormatDate(c.LastAdLogon)">@IndexModel.FormatAge(c.LastAdLogon)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</form>
 
 @if (Model.Rows.Count == 0)
 {

@@ -1,12 +1,12 @@
 # DNWsus-Client
 
-Windows-Updates für **Clients** (keine Server) zentral steuern und überwachen.
-Ursprung: 1:1-Kopie von DNWsus v1.0.28 (WinForms, WinRM-Push) – wird gerade komplett neu gebaut.
+Windows-Updates für **Clients** (keine Server) zentral steuern und überwachen: Webdienst auf einem Server pro Domain,
+Agent auf den Clients. Ursprung war eine Kopie von DNWsus v1.0.28 (WinForms, WinRM-Push) – ab v2.0.0 komplett neu gebaut.
 Keine Verbindung zum Original `D:\claude-projekte\dnwsus`, das bleibt unberührt.
 Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteilt).
 
 ## Regeln
-- Gebaut wird immer mit `.\build.ps1 <Version>` (z. B. `.\build.ps1 2.0.0`). Ergebnis liegt in `Releases\<Version>\`.
+- Gebaut wird immer mit `.\build.ps1 <Version>` (z. B. `.\build.ps1 2.1.0`). Ergebnis: `Releases\<Version>\DnwSus-Server-<Version>.msi`.
 - Erst informieren und Vorgehen besprechen, dann umsetzen.
 - **Auf dem Entwicklungsrechner nichts ausführen oder testen.** Er steht in einer abgekapselten Arbeitsumgebung.
   Erlaubt sind nur Code schreiben, bauen (`build.ps1`) und git. Gebaute Programme (Server, Agent, MSI) nie starten,
@@ -14,45 +14,46 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   für eine Testumgebung beschrieben und dort vom Benutzer durchgeführt.
 - Nach jedem abgeschlossenen Schritt: bauen, git commit, **git push** (Repo immer synchron halten).
 - Keine verschleiert wirkenden Konstrukte (z. B. `powershell -EncodedCommand`/Base64, VBS-Starter, `conhost --headless`):
-  ein Versuch damit (v1.0.35 im Original) wurde von Windows Defender gelöscht. Remote-/Hilfs-Scripts immer als lesbare Datei.
+  ein Versuch damit (v1.0.35 im Original) wurde von Windows Defender gelöscht. Hilfs-Scripts immer als lesbare Datei.
 - **Nichts Kundenspezifisches ins Repo**: keine Zertifikate, Servernamen, Passwörter. Alles Kundenspezifische entsteht
   erst bei der Installation beim Kunden.
 - Für Benutzer auf den Clients darf nie ein PowerShell-/Konsolenfenster sichtbar sein.
+- PowerShell-Scripts mit Umlauten als UTF-8 **mit BOM** speichern (sonst liest Windows PowerShell 5.1 sie falsch).
 
-## Architektur (beschlossen)
-- **DnwSus.Server** (`src/DnwSus.Server`, ASP.NET Core .NET 10, self-contained, Windows-Dienst `DnwSusServer`):
-  - Läuft auf genau einem Server pro Domain (Windows Server 2019+), HTTPS-Port **13162**.
-  - Dashboard nur vom Server selbst erreichbar und nur für Domänen-Admins (Windows-Anmeldung/Negotiate).
-    Einstellbar über `DnwSus:AdminGroup` in appsettings.json.
-  - Von Clients erreichbar nur `/api/agent/*` (Agent-Schnittstelle, Kerberos mit Computerkonto) und `/download/*` (MSI).
-  - Zertifikat: stellt der Server beim ersten Start selbst aus (10 Jahre, LocalMachine\My, FriendlyName "DNWsus Server"),
-    trägt es lokal in Root ein. Die Agent-MSI enthält URL + Fingerabdruck, der Agent vertraut nur genau diesem Zertifikat.
-  - Bis zur Server-MSI: Installation mit `setup\install-server.ps1` (als Admin).
-- **DnwSus.Agent** (geplant, .NET Framework 4.8, SYSTEM-Aufgabe): holt Einstellungen per HTTPS, meldet Status,
-  installiert über die Windows-Update-API (kein PowerShell). Meldet sich alle 5 Min., voller Scan ca. alle 4 Std.
-  Verteilung per MSI (GPO oder manuell), MSI wird im Dashboard erzeugt. Kein Selbst-Update (Updates kommen per GPO).
-- **DnwSus.Hinweis** (geplant): Popup-exe im Benutzerkontext, Logo eingebettet.
+## Aufbau
+- `src/DnwSus.Server` – ASP.NET Core .NET 10, self-contained, Windows-Dienst `DnwSusServer` (SYSTEM), HTTPS-Port **13162**.
+  - Dashboard nur vom Server selbst und nur für Domänen-Admins (Negotiate; `DnwSus:AdminGroup` in appsettings.json).
+  - Von Clients erreichbar nur `/api/agent/report` (Kerberos mit Computerkonto, Name muss zum Konto passen)
+    und `/download/DnwSus-Agent.msi`. Siehe `Services/LocalAccess.cs`, `Api/AgentApi.cs`.
+  - Zertifikat stellt der Server selbst aus (`Services/ServerCertificate.cs`, 10 Jahre, LocalMachine\My, FriendlyName
+    "DNWsus Server", lokal in Root eingetragen). Agent vertraut nur dessen SHA-256-Fingerabdruck.
+  - Daten: SQLite `C:\ProgramData\DNWsus\Server\dnwsus.db` (nur SYSTEM/Admins) – Clients, Läufe, Zeitpläne, Ereignisse.
+  - Agent-MSI: neutrale Vorlage `agent\DnwSus-Agent.msi` im Installationsordner; `Services/AgentMsiService.cs` trägt
+    `DNWSUS_SERVERURL`/`DNWSUS_CERTHASH` per msi.dll ein (eigener PackageCode) und liefert sie aus.
+  - `Services/ScheduleService.cs` legt aus Zeitplänen (wöchentlich / Patchday + X Tage) Läufe an.
+- `src/DnwSus.Agent` – .NET Framework 4.8, Windows-Dienst `DnwSusAgent` (SYSTEM). Meldet alle 5 Min. (`/api/agent/report`),
+  Scan alle 4 h bzw. auf Anforderung, installiert offene Läufe über die WUA-COM-Schnittstelle (kein PowerShell),
+  steuert den Neustart je Gruppe (`Worker.cs`). Konfiguration in `HKLM\SOFTWARE\DNWsus\Agent` (ServerUrl, CertHash),
+  Zustand/Log in `C:\ProgramData\DNWsus\Agent`. Kein Selbst-Update (neue Versionen per GPO/MSI).
+- `src/DnwSus.Hinweis` – WinForms-Popup (.NET 4.8), vom Agenten per CreateProcessAsUser in der Benutzersitzung gestartet.
+  Antwort per Exit-Code: 0 = später, 1 = jetzt, 1000+n = in n Minuten.
+- `src/DnwSus.Server/Api/AgentContracts.cs` und `src/DnwSus.Agent/Contracts.cs` sind das Austauschformat – immer gemeinsam ändern.
+- `setup/Agent`, `setup/Server` – WiX 5 (WixToolset.Sdk 5.0.2). `docs/Installation.md` – Installation, GPO, Testcheckliste.
 
 ## Gruppen (AD, verschachtelt über `memberOf:1.2.840.113556.1.4.1941:=`)
-- **GRP_Update1**: alles installieren; Neustart nur mit Zustimmung. Popup „Jetzt“ / „Selbst wählen“ (max. 24 h),
+- **GRP_Update1**: alles installieren; Neustart nur mit Zustimmung. Popup „Jetzt“ / „Zeitpunkt wählen“ (max. 24 h),
   Erinnerung alle 30 Min.
 - **GRP_Update2**: alles installieren; Benutzer wählt sofort / 15 / 60 / 120 Min., spätestens nach 2 h Neustart
   (5 Min. vorher Hinweis).
-- **GRP_Update3**: alles installieren, bei Bedarf automatischer Neustart mit Hinweis „in 5 Minuten“ + Knopf „Jetzt neu starten“.
-- Ist niemand angemeldet: direkt neu starten. Keine Reboot-Zeit-Einstellung im Dashboard.
-- Läufe pro Gruppe manuell auslösbar (ganze Gruppe oder einzelne Clients) und per festem Zeitplan; offline Clients werden
-  immer nachgezogen. Grundeinstellung: alle Updates (KB-Ausschlüsse/Testgruppen evtl. später).
-- Tab „Ohne Gruppe“: aktive Client-Computerkonten in keiner der drei Gruppen; veraltete (> 90 Tage keine AD-Anmeldung)
-  grau, per Filter ausblendbar. Clients in mehreren Gruppen = Konflikt, werden nicht aktualisiert.
+- **GRP_Update3**: alles installieren, bei Bedarf automatischer Neustart nach 5 Min. mit Hinweis + Knopf „Jetzt neu starten“.
+- Niemand angemeldet: direkt neu starten. Keine Reboot-Zeit-Einstellung im Dashboard.
+- Läufe pro Gruppe manuell (ganze Gruppe / ausgewählte Clients, optional Updatestart) oder per Zeitplan; offline Clients
+  holen offene Läufe immer nach. Grundeinstellung: alle Updates (KB-Ausschlüsse/Testgruppen evtl. später).
+- Tab „Ohne Gruppe“: aktive Client-Computerkonten in keiner Gruppe; veraltete (> 90 Tage keine AD-Anmeldung) grau.
+  Clients in mehreren Gruppen = Konflikt, werden nicht aktualisiert.
 
-## Etappen
-1. ✔ Grundgerüst: Server als Dienst, eigenes Zertifikat, Zugriffsschutz, Tabs aus dem AD (v2.0.0)
-2. Agent + MSI-Erzeugung im Dashboard, Statusmeldung (Updates, Uptime, IP, Benutzer, letzter Kontakt, Fehler), GPO-Anleitung
-3. Gruppen-Einstellungen, Läufe/Zeitpläne, Installation durch den Agenten
-4. Hinweis-exe mit Popups
-5. Alten WinForms-Code (`WindowsUpdateManager/`) entfernen, Server-MSI, Logo (transparente Version kommt vom Benutzer), Feinschliff
-
-## Altbestand (bis Etappe 5)
-- `WindowsUpdateManager/`: alter WinForms-Code v1.0.34, nur noch als Referenz (WUA-Scripts, AD-Logik).
-- Bekannte Fehler dort (für den Neubau beachten): feste Dateinamen in `C:\Windows\Temp` bei Sofort-/geplanter Installation;
-  Neustart wird bei geplanter Installation nicht angelegt.
+## Stand / offen
+- v2.1.0: alles gebaut, **noch nicht in einer Testumgebung getestet**.
+- Offen: **Serverumzug** (Agenten auf neuen Server umziehen – Idee: alter Server liefert neue URL + Fingerabdruck aus,
+  Agent übernimmt sie; Notweg: neue Agent-MSI per GPO). Benutzer am Ende daran erinnern.
+- Offen: Logo im Hinweis (Benutzer liefert transparente Version), Code-Signatur (öffentliches Zertifikat oder Trusted Signing).

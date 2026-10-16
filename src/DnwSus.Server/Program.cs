@@ -1,6 +1,8 @@
 using System.Net;
 using System.Security.Principal;
 using DnwSus.Server;
+using DnwSus.Server.Api;
+using DnwSus.Server.Data;
 using DnwSus.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
@@ -33,7 +35,17 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<AdService>();
+builder.Services.AddSingleton<Database>();
+builder.Services.AddSingleton(new ServerIdentity(certificate, options.Port));
+builder.Services.AddSingleton<AgentMsiService>();
+builder.Services.AddHostedService<ScheduleService>();
 builder.Services.AddRazorPages();
+// Agent (.NET 4.8, JavaScriptSerializer) schreibt Eigenschaftsnamen in PascalCase
+builder.Services.ConfigureHttpJsonOptions(json =>
+{
+    json.SerializerOptions.PropertyNamingPolicy = null;
+    json.SerializerOptions.PropertyNameCaseInsensitive = true;
+});
 
 var app = builder.Build();
 
@@ -46,7 +58,7 @@ app.UseRouting();
 app.UseAuthentication();
 
 // Zugriffsschutz: Das Dashboard ist nur auf dem Server selbst und nur für Admins erreichbar.
-// Agent-Schnittstelle und MSI-Download (ab Etappe 2) haben eigene Regeln.
+// Agent-Schnittstelle und MSI-Download sind auch von Clients erreichbar und haben eigene Regeln (AgentApi).
 app.Use(async (context, next) =>
 {
     if (LocalAccess.IsRemoteAllowedPath(context.Request.Path))
@@ -80,6 +92,7 @@ app.Use(async (context, next) =>
 app.UseAuthorization();
 app.MapStaticAssets();
 app.MapRazorPages().WithStaticAssets();
+app.MapAgentApi();
 
 app.Run();
 

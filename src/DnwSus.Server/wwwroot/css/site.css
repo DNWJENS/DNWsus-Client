@@ -97,3 +97,37 @@ main { padding: 16px 20px; }
 .grid tr.stale td b { font-weight: 400; }
 
 .empty { padding: 20px 0; }
+
+.navlink { color: var(--text); text-decoration: none; padding: 4px 10px; border-radius: 6px; }
+.navlink:hover { background: var(--surface-light); }
+
+h2 { margin: 6px 0 12px; }
+h3 { margin: 0 0 8px; font-size: 15px; }
+
+.panels { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.panel { flex: 1 1 320px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+.panel p { margin: 0 0 8px; }
+
+.mini { border-collapse: collapse; }
+.mini td { padding: 3px 10px 3px 0; vertical-align: top; }
+
+ul.plain { list-style: none; padding: 0; margin: 0 0 8px; }
+ul.plain li { padding: 2px 0; }
+
+form.inline { display: inline; }
+.schedule-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.schedule-form select, .schedule-form input[type=time], .schedule-form input[type=number], .actions input {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px;
+}
+input.small { width: 56px; }
+
+button.button { border: none; cursor: pointer; font: inherit; }
+.button.secondary { background: var(--surface-light); color: var(--text); }
+button.link { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0 4px; font: inherit; }
+button.link:hover { text-decoration: underline; }
+
+.grid td.wrap, .wrap { white-space: normal; word-break: break-word; }
+.grid th.sel, .grid td.sel { width: 28px; text-align: center; }
+.grid a { text-decoration: none; }
+.grid a:hover { text-decoration: underline; }
+code { font-family: Consolas, monospace; font-size: 12px; }

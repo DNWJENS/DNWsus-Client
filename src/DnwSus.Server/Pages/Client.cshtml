@@ -1,0 +1,105 @@
+@page
+@model ClientModel
+@{
+    ViewData["Title"] = Model.Name;
+    var st = Model.Status;
+}
+
+<p><a href="/">← zurück zur Übersicht</a></p>
+<h2>@Model.Name</h2>
+
+@if (Model.Message != null)
+{
+    <div class="banner info">@Model.Message</div>
+}
+
+<section class="panels">
+    <div class="panel">
+        <h3>Allgemein</h3>
+        <table class="mini">
+            <tr><td>Gruppe</td><td>@Model.GroupText</td></tr>
+            <tr><td>Betriebssystem</td><td>@Model.Ad?.OperatingSystem @Model.Ad?.OsVersion</td></tr>
+            <tr><td>AD-Anmeldung</td><td>@IndexModel.FormatDate(Model.Ad?.LastAdLogon)</td></tr>
+            <tr><td>DNS-Name</td><td>@(st?.DnsName ?? Model.Ad?.DnsName)</td></tr>
+            <tr><td>IP</td><td>@(st?.IpAddresses ?? "—")</td></tr>
+        </table>
+    </div>
+    <div class="panel">
+        <h3>Agent</h3>
+        @if (st?.LastContact == null)
+        {
+            <p class="muted">Von diesem Client hat sich noch kein Agent gemeldet.</p>
+        }
+        else
+        {
+            <table class="mini">
+                <tr><td>Status</td><td>@IndexModel.StateText(st)</td></tr>
+                <tr><td>Letzter Kontakt</td><td class="@(IndexModel.ContactIsOld(st) ? "warn" : "")">@IndexModel.FormatDate(st.LastContact)</td></tr>
+                <tr><td>Letzter Scan</td><td>@IndexModel.FormatDate(st.LastScan)</td></tr>
+                <tr><td>Uptime</td><td>@st.UptimeText (Start @IndexModel.FormatDate(st.BootTime))</td></tr>
+                <tr><td>Angemeldet</td><td>@(string.IsNullOrEmpty(st.CurrentUser) ? "niemand" : st.CurrentUser)</td></tr>
+                <tr><td>Zuletzt angemeldet</td><td>@(string.IsNullOrEmpty(st.LastUser) ? "—" : st.LastUser)</td></tr>
+                <tr><td>Agent-Version</td><td>@st.AgentVersion</td></tr>
+                <tr><td>Windows-Build</td><td>@st.OsVersion</td></tr>
+                @if (!string.IsNullOrEmpty(st.LastError))
+                {
+                    <tr><td>Fehler</td><td class="error">@st.LastError</td></tr>
+                }
+            </table>
+        }
+        <div class="toolbar">
+            <form method="post" asp-page-handler="Scan" class="inline">
+                <input type="hidden" name="name" value="@Model.Name" />
+                <button class="button secondary" type="submit">Neu scannen</button>
+            </form>
+            @if (Model.Ad is { Groups.Count: 1 })
+            {
+                <form method="post" asp-page-handler="Install" class="inline" onsubmit="return confirm('Updates auf @Model.Name jetzt installieren?');">
+                    <input type="hidden" name="name" value="@Model.Name" />
+                    <button class="button" type="submit">Jetzt installieren</button>
+                </form>
+            }
+        </div>
+    </div>
+</section>
+
+<h3>Ausstehende Updates (@(st?.PendingUpdates.Count ?? 0))</h3>
+@if (st == null || st.PendingUpdates.Count == 0)
+{
+    <p class="muted">@(st?.LastScan == null ? "Noch kein Scan vorhanden." : "Keine ausstehenden Updates.")</p>
+}
+else
+{
+    <table class="grid">
+        <thead><tr><th>KB</th><th>Titel</th><th>Größe</th><th>Neustart</th><th>Kategorie</th></tr></thead>
+        <tbody>
+            @foreach (var u in st.PendingUpdates)
+            {
+                <tr>
+                    <td>@(string.IsNullOrEmpty(u.KB) ? "" : "KB" + u.KB)</td>
+                    <td class="wrap">@u.Title</td>
+                    <td>@u.SizeMB.ToString("F1") MB</td>
+                    <td class="@(u.RebootRequired ? "warn" : "")">@(u.RebootRequired ? "ja" : "nein")</td>
+                    <td>@u.Category</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h3>Verlauf</h3>
+@if (Model.Events.Count == 0)
+{
+    <p class="muted">Noch keine Einträge.</p>
+}
+else
+{
+    <table class="grid">
+        <tbody>
+            @foreach (var e in Model.Events)
+            {
+                <tr><td>@e.Time.ToString("dd.MM.yyyy HH:mm")</td><td class="wrap @(e.IsError ? "error" : "")">@e.Text</td></tr>
+            }
+        </tbody>
+    </table>
+}

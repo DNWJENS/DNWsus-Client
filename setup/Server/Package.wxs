@@ -1,0 +1,86 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall">
+
+  <Package Name="DNWsus Server"
+           Manufacturer="DNW"
+           Version="$(var.Version)"
+           UpgradeCode="{A47C1E93-5B2D-4D86-8E1F-0C9B6A3D2E75}"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Compressed="yes">
+
+    <SummaryInformation Description="DNWsus Server – Dashboard und Agent-Schnittstelle für Windows-Updates der Clients" />
+    <MajorUpgrade DowngradeErrorMessage="Eine neuere Version des DNWsus Server ist bereits installiert." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="WINBUILD">
+      <RegistrySearch Id="WinBuildSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+                      Name="CurrentBuildNumber" Type="raw" Bitness="always64" />
+    </Property>
+
+    <Launch Condition="Installed OR MsiNTProductType &gt; 1"
+            Message="Der DNWsus Server muss auf einem Windows Server installiert werden." />
+    <Launch Condition="Installed OR WINBUILD &gt;= 17763"
+            Message="Der DNWsus Server benötigt Windows Server 2019 oder neuer." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="DnwDir" Name="DNWsus">
+        <Directory Id="INSTALLFOLDER" Name="Server" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="StartMenuDir" Name="DNWsus" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="ServerFiles" Directory="INSTALLFOLDER">
+      <!-- Alle Dateien der self-contained Veröffentlichung (inkl. agent\DnwSus-Agent.msi) -->
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\DnwSus.Server.exe" />
+        <Exclude Files="$(var.PublishDir)\appsettings.json" />
+      </Files>
+
+      <Component Id="ServerService" Bitness="always64">
+        <File Id="ServerExe" Source="$(var.PublishDir)\DnwSus.Server.exe" KeyPath="yes" />
+        <ServiceInstall Id="ServerServiceInstall"
+                        Name="DnwSusServer"
+                        DisplayName="DNWsus Server"
+                        Description="DNWsus: Dashboard und Agent-Schnittstelle für Windows-Updates der Clients (Port 13162)."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="LocalSystem"
+                        Vital="yes">
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="60"
+                              ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="ServerServiceControl" Name="DnwSusServer" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+        <!-- Clients erreichen Agent-Schnittstelle und MSI-Download; das Dashboard selbst ist nur lokal freigegeben -->
+        <fw:FirewallException Id="ServerFirewall" Name="DNWsus Server (TCP 13162)" Port="13162" Protocol="tcp"
+                              Profile="domain" Scope="any" />
+      </Component>
+
+      <!-- Einstellungen: bei Updates nicht überschreiben, falls angepasst -->
+      <Component Id="ServerSettings" Bitness="always64" NeverOverwrite="yes" Permanent="no">
+        <File Id="AppSettings" Source="$(var.PublishDir)\appsettings.json" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="Shortcuts" Directory="StartMenuDir">
+      <Component Id="DashboardShortcut" Bitness="always64">
+        <util:InternetShortcut Id="DashboardLink" Name="DNWsus Dashboard" Target="https://localhost:13162/" Type="url" />
+        <RemoveFolder Id="RemoveStartMenuDir" On="uninstall" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\DNWsus\Server" Name="Installiert" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="DNWsus Server">
+      <ComponentGroupRef Id="ServerFiles" />
+      <ComponentGroupRef Id="Shortcuts" />
+    </Feature>
+  </Package>
+</Wix>
