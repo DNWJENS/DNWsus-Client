@@ -18,12 +18,12 @@
             }
             else
             {
-                <p><b>Empfohlen:</b> Die fertige MSI (v@Model.AgentVersion) liegt auf diesem Server unter</p>
+                <p><a class="button" href="/download/DnwSus-Agent.msi">DnwSus-Agent.msi herunterladen (v@(Model.AgentVersion))</a></p>
+                <p><b>Ohne Browser-Warnungen:</b> Dieselbe MSI liegt auf diesem Server unter</p>
                 <p><code class="wrap" id="msiPath">@Model.MsiPath</code>
                     <button class="link" type="button" onclick="navigator.clipboard.writeText(document.getElementById('msiPath').textContent)">Pfad kopieren</button></p>
-                <p class="muted">Im Explorer von dort direkt auf die Freigabe für die GPO kopieren (Ordner ist nur für Administratoren lesbar).
-                    So gibt es keine Browser-Warnungen: Die MSI ist (noch) nicht code-signiert, deshalb warnen Browser beim Download.</p>
-                <p><a class="button secondary" href="/download/DnwSus-Agent.msi">Alternativ: im Browser herunterladen</a></p>
+                <p class="muted">Von dort im Explorer direkt auf die Freigabe für die GPO kopieren (Ordner ist nur für Administratoren lesbar).
+                    Beim Download warnen Browser, weil die MSI (noch) nicht code-signiert ist.</p>
             }
             <table class="mini">
                 <tr><td>Server-Adresse</td><td><code>@Model.Identity.Url</code></td></tr>
