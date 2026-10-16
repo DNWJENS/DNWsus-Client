@@ -134,3 +134,5 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 
 ul.names { margin: 6px 0 0; padding-left: 20px; columns: 3 220px; }
 .names-inline { font-weight: 600; }
+
+footer.version { padding: 8px 20px 14px; font-size: 11px; color: var(--muted); text-align: right; }

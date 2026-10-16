@@ -17,7 +17,9 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 builder.Host.UseWindowsService(o => o.ServiceName = "DnwSusServer");
 
 var options = builder.Configuration.GetSection("DnwSus").Get<DnwSusOptions>() ?? new DnwSusOptions();
+options.Normalize();
 builder.Services.Configure<DnwSusOptions>(builder.Configuration.GetSection("DnwSus"));
+builder.Services.PostConfigure<DnwSusOptions>(o => o.Normalize());
 
 var certificate = ServerCertificate.LoadOrCreate(out string certStore);
 
