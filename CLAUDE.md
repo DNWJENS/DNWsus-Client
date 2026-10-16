@@ -53,7 +53,8 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   Clients in mehreren Gruppen = Konflikt, werden nicht aktualisiert.
 
 ## Stand / offen
-- v2.1.0: alles gebaut, **noch nicht in einer Testumgebung getestet**.
+- v2.1.1: erster Test läuft (Server-Installation, Zertifikat, Anmeldung funktionieren). Fix: Admin-Prüfung berücksichtigt
+  UAC-gefilterte Tokens (Domänen-Admins nur „deny-only“, wenn der Browser nicht erhöht läuft).
 - Offen: **Serverumzug** (Agenten auf neuen Server umziehen – Idee: alter Server liefert neue URL + Fingerabdruck aus,
   Agent übernimmt sie; Notweg: neue Agent-MSI per GPO). Benutzer am Ende daran erinnern.
 - Offen: Logo im Hinweis (Benutzer liefert transparente Version), Code-Signatur (öffentliches Zertifikat oder Trusted Signing).

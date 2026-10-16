@@ -80,9 +80,9 @@ app.Use(async (context, next) =>
     }
 
     var ad = context.RequestServices.GetRequiredService<AdService>();
-    if (!ad.IsAdmin(identity))
+    if (!ad.IsAdmin(identity, out string? problem))
     {
-        await Deny(context, $"Kein Zugriff für {identity.Name}. Das Dashboard ist nur für Mitglieder der Gruppe „{ad.AdminGroupDisplayName}“ freigegeben.");
+        await Deny(context, problem ?? $"Kein Zugriff für {identity.Name}. Das Dashboard ist nur für Mitglieder der Gruppe „{ad.AdminGroupDisplayName}“ freigegeben.");
         return;
     }
 

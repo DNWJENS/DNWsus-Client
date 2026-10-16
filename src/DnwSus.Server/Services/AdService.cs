@@ -1,4 +1,5 @@
 using System.DirectoryServices;
+using System.Security.Claims;
 using System.Security.Principal;
 using System.Text;
 using Microsoft.Extensions.Options;
@@ -93,8 +94,32 @@ public sealed class AdService
     /// <summary>Darf dieser Benutzer das Dashboard nutzen? (Domänen-Admins bzw. eingestellte Gruppe)</summary>
     public bool IsAdmin(WindowsIdentity identity)
     {
+        return IsAdmin(identity, out _);
+    }
+
+    /// <summary>
+    /// Wie <see cref="IsAdmin(WindowsIdentity)"/>, liefert bei Ablehnung einen Grund für die Anzeige.
+    /// Ruft ein Admin das Dashboard über localhost aus einem nicht erhöhten Browser auf, bekommt der Dienst
+    /// wegen der Benutzerkontensteuerung das gefilterte Token: Admin-Gruppen sind darin nur „deny-only“
+    /// und fehlen in <see cref="WindowsIdentity.Groups"/>. Für unsere Prüfung zählt die Mitgliedschaft,
+    /// deshalb werden auch diese Einträge berücksichtigt.
+    /// </summary>
+    public bool IsAdmin(WindowsIdentity identity, out string? problem)
+    {
+        problem = null;
         var sid = GetAdminGroupSid();
-        return sid != null && identity.Groups != null && identity.Groups.Contains(sid);
+        if (sid == null)
+        {
+            problem = "Die Admin-Gruppe konnte im AD nicht ermittelt werden (Details in der Ereignisanzeige, Quelle DnwSus.Server).";
+            return false;
+        }
+
+        if (identity.Groups != null && identity.Groups.Contains(sid)) return true;
+        if (identity.Claims.Any(c => c.Type == ClaimTypes.DenyOnlySid && c.Value == sid.Value)) return true;
+
+        _logger.LogWarning("Dashboard-Zugriff verweigert für {User}: nicht Mitglied von {Group} ({Sid})",
+            identity.Name, AdminGroupDisplayName, sid.Value);
+        return false;
     }
 
     public string AdminGroupDisplayName =>
