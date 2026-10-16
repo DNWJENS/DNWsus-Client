@@ -197,7 +197,7 @@
                 <tr class="@(c.IsStale ? "stale" : "")" data-stale="@(c.IsStale ? "1" : "0")" data-noagent="@(st?.LastContact == null ? "1" : "0")"
                     data-search="@($"{c.Name} {c.DnsName} {c.OperatingSystem} {groupLabel} {st?.UserText} {st?.IpAddresses}".ToLowerInvariant())">
                     <td class="sel"><input type="checkbox" name="selected" value="@c.Name" /></td>
-                    <td title="@c.DistinguishedName"><a href="/Client?name=@c.Name"><b>@c.Name</b></a></td>
+                    <td title="@c.DistinguishedName"><a href="/Client?name=@c.Name"><b>@c.Name</b></a>@if (c.IsServer) { <span class="tag">Server</span> }</td>
                     @if (overview)
                     {
                         <td class="@(c.Groups.Count == 0 ? "warn" : c.Groups.Count > 1 ? "error" : "")">@(c.Groups.Count > 1 ? "Konflikt: " : "")@groupLabel</td>

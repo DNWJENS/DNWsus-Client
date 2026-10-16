@@ -12,7 +12,19 @@
         @if (Model.TemplateExists)
         {
             <p>Die MSI ist fest an diesen Server gebunden – sie enthält seine Adresse und den Fingerabdruck seines Zertifikats.</p>
-            <p><a class="button" href="/download/DnwSus-Agent.msi">DnwSus-Agent.msi herunterladen (v@Model.AgentVersion)</a></p>
+            @if (Model.MsiError != null)
+            {
+                <div class="banner error">MSI konnte nicht erzeugt werden: @Model.MsiError</div>
+            }
+            else
+            {
+                <p><b>Empfohlen:</b> Die fertige MSI (v@Model.AgentVersion) liegt auf diesem Server unter</p>
+                <p><code class="wrap" id="msiPath">@Model.MsiPath</code>
+                    <button class="link" type="button" onclick="navigator.clipboard.writeText(document.getElementById('msiPath').textContent)">Pfad kopieren</button></p>
+                <p class="muted">Im Explorer von dort direkt auf die Freigabe für die GPO kopieren (Ordner ist nur für Administratoren lesbar).
+                    So gibt es keine Browser-Warnungen: Die MSI ist (noch) nicht code-signiert, deshalb warnen Browser beim Download.</p>
+                <p><a class="button secondary" href="/download/DnwSus-Agent.msi">Alternativ: im Browser herunterladen</a></p>
+            }
             <table class="mini">
                 <tr><td>Server-Adresse</td><td><code>@Model.Identity.Url</code></td></tr>
                 <tr><td>Zertifikat (SHA-256)</td><td><code class="wrap">@Model.Identity.CertificateHash</code></td></tr>
@@ -38,7 +50,7 @@
 <section class="panel">
     <h3>Verteilung per GPO</h3>
     <ol>
-        <li>MSI herunterladen und auf eine Freigabe legen, die <b>Domänencomputer</b> lesen dürfen
+        <li>MSI (siehe Pfad oben) auf eine Freigabe legen, die <b>Domänencomputer</b> lesen dürfen
             (z. B. <code>\\server\Software$\DNWsus\DnwSus-Agent.msi</code>). Pfad als UNC-Pfad angeben, nicht als Laufwerksbuchstabe.</li>
         <li>Neue GPO anlegen und mit der OU der Clients verknüpfen (oder per Sicherheitsfilter auf die Update-Gruppen beschränken).</li>
         <li><i>Computerkonfiguration → Richtlinien → Softwareeinstellungen → Softwareinstallation</i> → Neu → Paket → MSI auswählen → <b>Zugewiesen</b>.</li>

@@ -136,3 +136,5 @@ ul.names { margin: 6px 0 0; padding-left: 20px; columns: 3 220px; }
 .names-inline { font-weight: 600; }
 
 footer.version { padding: 8px 20px 14px; font-size: 11px; color: var(--muted); text-align: right; }
+
+.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 8px; font-size: 11px; background: var(--warn); color: var(--bg); }

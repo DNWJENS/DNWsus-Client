@@ -31,14 +31,20 @@ die Agenten müssen nicht neu verteilt werden.
 
 ## 3. Agent verteilen
 
-1. Im Dashboard die Seite **Agent** öffnen → **DnwSus-Agent.msi herunterladen**.
-   Diese MSI enthält Adresse und Zertifikats-Fingerabdruck **dieses** Servers.
+1. Im Dashboard die Seite **Agent** öffnen. Dort steht der lokale Pfad der fertigen MSI auf dem Server
+   (`C:\ProgramData\DNWsus\Server\msi\DnwSus-Agent-….msi`). Von dort im Explorer kopieren – das vermeidet die
+   Browser-Warnungen beim Download (die MSI ist noch nicht code-signiert). Der Dateiname darf beim Kopieren
+   z. B. in `DnwSus-Agent.msi` geändert werden. Die MSI enthält Adresse und Zertifikats-Fingerabdruck **dieses** Servers.
 2. MSI auf eine Freigabe legen, die **Domänencomputer** lesen dürfen, z. B. `\\server\Software$\DNWsus\DnwSus-Agent.msi`.
 3. GPO: *Computerkonfiguration → Richtlinien → Softwareeinstellungen → Softwareinstallation → Neu → Paket*
    → UNC-Pfad der MSI → **Zugewiesen**. GPO mit der OU der Clients verknüpfen.
 4. Die Installation erfolgt beim nächsten Neustart des Clients. Danach meldet sich der Agent innerhalb von 5 Minuten im Dashboard.
 
 Alternativ: MSI auf einem Client als Administrator per Doppelklick installieren.
+
+Zum Testen lässt sich der Agent auch auf Windows Server installieren. Server erscheinen im Dashboard nur, wenn sie
+Mitglied einer Update-Gruppe sind (markiert mit „Server“). Achtung: Ist niemand angemeldet, startet auch ein Server
+nach der Installation sofort neu.
 
 Ein Agent ohne Update-Gruppe meldet nur seinen Stand (ausstehende Updates, Uptime, IP, Benutzer) und installiert nichts.
 

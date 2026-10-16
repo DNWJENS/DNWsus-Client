@@ -23,6 +23,10 @@ public sealed class AgentModel : PageModel
     public int ReportingToday { get; private set; }
     public List<EventEntry> RecentEvents { get; private set; } = new();
 
+    /// <summary>Lokaler Pfad der fertigen MSI auf dem Server (zum Kopieren ohne Browser-Download).</summary>
+    public string? MsiPath { get; private set; }
+    public string? MsiError { get; private set; }
+
     public void OnGet()
     {
         var all = _db.GetAllStatus().Values.Where(s => s.LastContact != null).ToList();
@@ -30,5 +34,11 @@ public sealed class AgentModel : PageModel
         ReportingToday = all.Count(s => s.LastContact > DateTime.Now.AddDays(-1));
         AgentVersion = typeof(AgentModel).Assembly.GetName().Version?.ToString(3) ?? "";
         RecentEvents = _db.GetEvents(null, 100);
+
+        if (_msi.TemplateExists)
+        {
+            try { MsiPath = _msi.GetMsiPath(); }
+            catch (Exception ex) { MsiError = ex.Message; }
+        }
     }
 }

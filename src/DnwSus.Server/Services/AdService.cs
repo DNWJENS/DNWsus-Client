@@ -22,6 +22,9 @@ public sealed class ClientInfo
     public List<int> Groups { get; } = new();
 
     public bool IsStale { get; set; }
+
+    /// <summary>Server-Betriebssystem – nur zum Testen in einer Update-Gruppe zugelassen.</summary>
+    public bool IsServer { get; init; }
 }
 
 public sealed class GroupInfo
@@ -179,24 +182,9 @@ public sealed class AdService
             using var results = searcher.FindAll();
             foreach (SearchResult sr in results)
             {
-                string dn = Get(sr, "distinguishedName");
-                string name = Get(sr, "name");
-                if (dn.Length == 0 || name.Length == 0) continue;
-
-                DateTime? lastLogon = null;
-                if (sr.Properties.Contains("lastLogonTimestamp") && sr.Properties["lastLogonTimestamp"][0] is long ft && ft > 0)
-                    lastLogon = DateTime.FromFileTimeUtc(ft).ToLocalTime();
-
-                clients[dn] = new ClientInfo
-                {
-                    Name = name.ToUpperInvariant(),
-                    DnsName = Get(sr, "dNSHostName").ToLowerInvariant(),
-                    OperatingSystem = Get(sr, "operatingSystem"),
-                    OsVersion = Get(sr, "operatingSystemVersion"),
-                    DistinguishedName = dn,
-                    LastAdLogon = lastLogon,
-                    IsStale = lastLogon == null || lastLogon < DateTime.Now.AddDays(-_options.StaleDays)
-                };
+                if (Get(sr, "distinguishedName").Length == 0 || Get(sr, "name").Length == 0) continue;
+                var client = ToClientInfo(sr, isServer: false);
+                clients[client.DistinguishedName] = client;
             }
         }
 
@@ -213,7 +201,8 @@ public sealed class AdService
 
             using var searcher = new DirectorySearcher(root,
                 "(&(objectCategory=computer)(memberOf:" + InChainRule + ":=" + Escape(groupDn) + "))",
-                new[] { "distinguishedName", "name", "operatingSystem", "userAccountControl" });
+                new[] { "distinguishedName", "name", "operatingSystem", "userAccountControl",
+                        "dNSHostName", "operatingSystemVersion", "lastLogonTimestamp" });
             searcher.PageSize = 1000;
             using var results = searcher.FindAll();
             foreach (SearchResult sr in results)
@@ -227,6 +216,17 @@ public sealed class AdService
                 string os = Get(sr, "operatingSystem");
                 bool disabled = sr.Properties.Contains("userAccountControl") &&
                                 sr.Properties["userAccountControl"][0] is int uac && (uac & 2) != 0;
+
+                // Server erscheinen nur, wenn sie Mitglied einer Update-Gruppe sind (gedacht zum Testen),
+                // nie unter „Ohne Gruppe“.
+                if (!disabled && os.Contains("Server", StringComparison.OrdinalIgnoreCase))
+                {
+                    var server = ToClientInfo(sr, isServer: true);
+                    server.Groups.Add(group.Number);
+                    clients[server.DistinguishedName] = server;
+                    continue;
+                }
+
                 group.HiddenMembers.Add(new HiddenMember
                 {
                     Name = Get(sr, "name").ToUpperInvariant(),
@@ -244,6 +244,25 @@ public sealed class AdService
             Domain = domain,
             Clients = clients.Values.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList(),
             Groups = groups
+        };
+    }
+
+    private ClientInfo ToClientInfo(SearchResult sr, bool isServer)
+    {
+        DateTime? lastLogon = null;
+        if (sr.Properties.Contains("lastLogonTimestamp") && sr.Properties["lastLogonTimestamp"][0] is long ft && ft > 0)
+            lastLogon = DateTime.FromFileTimeUtc(ft).ToLocalTime();
+
+        return new ClientInfo
+        {
+            Name = Get(sr, "name").ToUpperInvariant(),
+            DnsName = Get(sr, "dNSHostName").ToLowerInvariant(),
+            OperatingSystem = Get(sr, "operatingSystem"),
+            OsVersion = Get(sr, "operatingSystemVersion"),
+            DistinguishedName = Get(sr, "distinguishedName"),
+            LastAdLogon = lastLogon,
+            IsStale = lastLogon == null || lastLogon < DateTime.Now.AddDays(-_options.StaleDays),
+            IsServer = isServer
         };
     }
 

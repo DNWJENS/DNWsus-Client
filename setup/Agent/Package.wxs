@@ -20,9 +20,8 @@
     <PropertyRef Id="WIX_IS_NETFRAMEWORK_48_OR_LATER_INSTALLED" />
 
     <Launch Condition="Installed OR WIX_IS_NETFRAMEWORK_48_OR_LATER_INSTALLED"
-            Message="Der DNWsus Agent benötigt .NET Framework 4.8 (in allen aktuellen Versionen von Windows 10 und 11 enthalten)." />
-    <Launch Condition="Installed OR MsiNTProductType = 1"
-            Message="Der DNWsus Agent ist nur für Windows-Clients (Windows 10/11) vorgesehen, nicht für Server." />
+            Message="Der DNWsus Agent benötigt .NET Framework 4.8 (in Windows 10/11 enthalten, auf Windows Server ggf. nachinstallieren)." />
+    <!-- Auch auf Servern installierbar (zum Testen); im Dashboard erscheinen Server nur als Mitglied einer Update-Gruppe. -->
     <Launch Condition="Installed OR (DNWSUS_SERVERURL &lt;&gt; &quot;NICHT_GESETZT&quot; AND DNWSUS_CERTHASH &lt;&gt; &quot;NICHT_GESETZT&quot;)"
             Message="Diese MSI ist an keinen DNWsus-Server gebunden. Bitte die Agent-MSI im DNWsus-Dashboard (Seite „Agent“) herunterladen." />
 
