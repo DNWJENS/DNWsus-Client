@@ -35,9 +35,28 @@
 {
     <div class="banner error">@Model.Conflicts Client(s) sind in mehreren Update-Gruppen. Bitte im AD bereinigen – diese Clients werden nicht aktualisiert.</div>
 }
-@if (Model.CurrentGroup is { HiddenMembers: > 0 } cg)
+@if (Model.CurrentGroup is { HiddenMembers.Count: > 0 } cg)
 {
-    <div class="banner info">@cg.HiddenMembers Mitglied(er) von @cg.Name sind keine aktiven Clients (Server, deaktiviert o. Ä.) und werden nicht angezeigt.</div>
+    <div class="banner warn">
+        @cg.HiddenMembers.Count Mitglied(er) von <b>@cg.Name</b> sind keine aktiven Clients und werden nicht aktualisiert:
+        <ul class="names">
+            @foreach (var h in cg.HiddenMembers)
+            {
+                <li><b>@h.Name</b> <span class="muted">– @h.Reason</span></li>
+            }
+        </ul>
+    </div>
+}
+@{ var withoutAgent = Model.Rows.Where(r => r.Status?.LastContact == null).Select(r => r.Ad.Name).ToList(); }
+@if (withoutAgent.Count > 0 && !ungrouped)
+{
+    <div class="banner warn">
+        @withoutAgent.Count von @Model.Rows.Count Client(s) in dieser Ansicht haben sich noch nie mit einem Agenten gemeldet@(groupTab ? ":" : " – Filter „Nur ohne Agent“ zeigt sie.")
+        @if (groupTab)
+        {
+            <span class="names-inline">@string.Join(", ", withoutAgent)</span>
+        }
+    </div>
 }
 
 @if (groupTab)
@@ -129,6 +148,7 @@
     <div class="toolbar">
         <input id="search" type="search" placeholder="Suchen (Name, Benutzer, IP, Betriebssystem …)" autocomplete="off" />
         <label class="check"><input id="hideStale" type="checkbox" /> Veraltete ausblenden</label>
+        <label class="check"><input id="onlyNoAgent" type="checkbox" /> Nur ohne Agent</label>
         <span class="muted" id="visibleCount"></span>
         <span class="spacer"></span>
         <span class="muted">AD-Stand: @s.LoadedAt.ToString("HH:mm:ss")</span>
@@ -174,7 +194,7 @@
                 var c = row.Ad;
                 var st = row.Status;
                 string groupLabel = Model.GroupLabel(c);
-                <tr class="@(c.IsStale ? "stale" : "")" data-stale="@(c.IsStale ? "1" : "0")"
+                <tr class="@(c.IsStale ? "stale" : "")" data-stale="@(c.IsStale ? "1" : "0")" data-noagent="@(st?.LastContact == null ? "1" : "0")"
                     data-search="@($"{c.Name} {c.DnsName} {c.OperatingSystem} {groupLabel} {st?.UserText} {st?.IpAddresses}".ToLowerInvariant())">
                     <td class="sel"><input type="checkbox" name="selected" value="@c.Name" /></td>
                     <td title="@c.DistinguishedName"><a href="/Client?name=@c.Name"><b>@c.Name</b></a></td>
@@ -182,7 +202,7 @@
                     {
                         <td class="@(c.Groups.Count == 0 ? "warn" : c.Groups.Count > 1 ? "error" : "")">@(c.Groups.Count > 1 ? "Konflikt: " : "")@groupLabel</td>
                     }
-                    <td class="@(st?.RebootPendingSince != null ? "warn" : "")">@IndexModel.StateText(st)</td>
+                    <td class="@(st?.LastContact == null || st.RebootPendingSince != null ? "warn" : "")">@IndexModel.StateText(st)</td>
                     @if (groupTab)
                     {
                         <td>@(row.PendingRunStart == null ? "—" : row.PendingRunStart > DateTime.Now ? "geplant " + row.PendingRunStart.Value.ToString("dd.MM. HH:mm") : "offen")</td>

@@ -6,6 +6,7 @@
         var hideStale = document.getElementById("hideStale");
         var counter = document.getElementById("visibleCount");
         var selectAll = document.getElementById("selectAll");
+        var onlyNoAgent = document.getElementById("onlyNoAgent");
         var rows = table.tBodies[0].rows;
 
         try { hideStale.checked = localStorage.getItem("dnwsus.hideStale") === "1"; } catch (e) { }
@@ -17,7 +18,8 @@
                 var row = rows[i];
                 var text = row.getAttribute("data-search");
                 var show = terms.every(function (t) { return text.indexOf(t) >= 0; }) &&
-                           !(hideStale.checked && row.getAttribute("data-stale") === "1");
+                           !(hideStale.checked && row.getAttribute("data-stale") === "1") &&
+                           !(onlyNoAgent.checked && row.getAttribute("data-noagent") !== "1");
                 row.style.display = show ? "" : "none";
                 if (!show) row.querySelector("input[name=selected]").checked = false;
                 if (show) visible++;
@@ -30,6 +32,7 @@
             try { localStorage.setItem("dnwsus.hideStale", hideStale.checked ? "1" : "0"); } catch (e) { }
             apply();
         });
+        onlyNoAgent.addEventListener("change", apply);
         selectAll.addEventListener("change", function () {
             for (var i = 0; i < rows.length; i++) {
                 if (rows[i].style.display !== "none")

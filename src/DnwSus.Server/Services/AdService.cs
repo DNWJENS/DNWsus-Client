@@ -30,8 +30,15 @@ public sealed class GroupInfo
     public string Name { get; init; } = "";
     public bool Found { get; set; }
 
-    /// <summary>Mitglieder, die keine echten Clients sind (Server, deaktiviert …) und daher nicht angezeigt werden.</summary>
-    public int HiddenMembers { get; set; }
+    /// <summary>Mitglieder, die keine echten Clients sind (Server, deaktiviert …) und daher nicht in der Tabelle stehen.</summary>
+    public List<HiddenMember> HiddenMembers { get; } = new();
+}
+
+/// <summary>Gruppenmitglied, das nicht als Client angezeigt wird, mit Grund.</summary>
+public sealed class HiddenMember
+{
+    public string Name { get; init; } = "";
+    public string Reason { get; init; } = "";
 }
 
 public sealed class AdSnapshot
@@ -206,16 +213,30 @@ public sealed class AdService
 
             using var searcher = new DirectorySearcher(root,
                 "(&(objectCategory=computer)(memberOf:" + InChainRule + ":=" + Escape(groupDn) + "))",
-                new[] { "distinguishedName" });
+                new[] { "distinguishedName", "name", "operatingSystem", "userAccountControl" });
             searcher.PageSize = 1000;
             using var results = searcher.FindAll();
             foreach (SearchResult sr in results)
             {
                 if (clients.TryGetValue(Get(sr, "distinguishedName"), out var client))
+                {
                     client.Groups.Add(group.Number);
-                else
-                    group.HiddenMembers++;
+                    continue;
+                }
+
+                string os = Get(sr, "operatingSystem");
+                bool disabled = sr.Properties.Contains("userAccountControl") &&
+                                sr.Properties["userAccountControl"][0] is int uac && (uac & 2) != 0;
+                group.HiddenMembers.Add(new HiddenMember
+                {
+                    Name = Get(sr, "name").ToUpperInvariant(),
+                    Reason = disabled ? "deaktiviert"
+                        : os.Length == 0 ? "kein Betriebssystem im AD (nie angemeldet?)"
+                        : os.Contains("Server", StringComparison.OrdinalIgnoreCase) ? "Server (" + os + ")"
+                        : os
+                });
             }
+            group.HiddenMembers.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
         }
 
         return new AdSnapshot

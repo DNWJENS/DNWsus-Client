@@ -131,3 +131,6 @@ button.link:hover { text-decoration: underline; }
 .grid a { text-decoration: none; }
 .grid a:hover { text-decoration: underline; }
 code { font-family: Consolas, monospace; font-size: 12px; }
+
+ul.names { margin: 6px 0 0; padding-left: 20px; columns: 3 220px; }
+.names-inline { font-weight: 600; }
