@@ -42,7 +42,7 @@ builder.Services.AddSingleton(new ServerIdentity(certificate, options.Port));
 builder.Services.AddSingleton<AgentMsiService>();
 builder.Services.AddHostedService<ScheduleService>();
 builder.Services.AddRazorPages();
-// Agent (.NET 4.8, JavaScriptSerializer) schreibt Eigenschaftsnamen in PascalCase
+// Agent (.NET Framework 4.6.2, JavaScriptSerializer) schreibt Eigenschaftsnamen in PascalCase
 builder.Services.ConfigureHttpJsonOptions(json =>
 {
     json.SerializerOptions.PropertyNamingPolicy = null;

@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Server** | Windows Server 2019 oder neuer, Mitglied der Domäne. Keine weiteren Komponenten nötig (.NET ist enthalten). |
-| **Clients** | Windows 10/11 (Domänenmitglied) mit .NET Framework 4.8 – in allen aktuellen Versionen enthalten. |
+| **Clients** | Windows 10/11 (Domänenmitglied), zum Testen auch Windows Server ab 2016. Benötigt .NET Framework 4.6.2 oder neuer – dort ab Werk enthalten. |
 | **Netzwerk** | Clients erreichen den Server auf **TCP 13162** (im Büro oder per VPN). Die Firewall-Regel auf dem Server legt die MSI an (Profil Domäne). |
 | **AD** | Gruppen `GRP_Update1`, `GRP_Update2`, `GRP_Update3` mit den Computerkonten der Clients (verschachtelte Gruppen sind erlaubt). |
 

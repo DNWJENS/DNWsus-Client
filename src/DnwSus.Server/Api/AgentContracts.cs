@@ -1,7 +1,7 @@
 namespace DnwSus.Server.Api;
 
 // Austauschformat zwischen Agent und Server (JSON, Eigenschaftsnamen unverändert in PascalCase).
-// Zeitangaben sind Strings im Format yyyy-MM-ddTHH:mm:ss (Ortszeit), weil der Agent (.NET 4.8,
+// Zeitangaben sind Strings im Format yyyy-MM-ddTHH:mm:ss (Ortszeit), weil der Agent (.NET Framework 4.6.2,
 // JavaScriptSerializer) DateTime sonst in einem eigenen Format schreibt.
 // Gegenstück im Agenten: src/DnwSus.Agent/Contracts.cs – beide Dateien gemeinsam ändern.
 

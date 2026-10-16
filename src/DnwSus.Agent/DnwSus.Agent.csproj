@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <!-- 4.6.2: ab Werk in Windows Server 2016; Windows 10/11 und neuere Server bringen höhere 4.x-Versionen mit -->
+    <TargetFramework>net462</TargetFramework>
     <OutputType>Exe</OutputType>
     <RootNamespace>DnwSus.Agent</RootNamespace>
     <AssemblyName>DnwSus.Agent</AssemblyName>

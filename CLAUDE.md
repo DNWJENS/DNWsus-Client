@@ -31,11 +31,11 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   - Agent-MSI: neutrale Vorlage `agent\DnwSus-Agent.msi` im Installationsordner; `Services/AgentMsiService.cs` trägt
     `DNWSUS_SERVERURL`/`DNWSUS_CERTHASH` per msi.dll ein (eigener PackageCode) und liefert sie aus.
   - `Services/ScheduleService.cs` legt aus Zeitplänen (wöchentlich / Patchday + X Tage) Läufe an.
-- `src/DnwSus.Agent` – .NET Framework 4.8, Windows-Dienst `DnwSusAgent` (SYSTEM). Meldet alle 5 Min. (`/api/agent/report`),
+- `src/DnwSus.Agent` – .NET Framework 4.6.2 (läuft ab Server 2016 / allen Win10/11 ohne Nachinstallation), Windows-Dienst `DnwSusAgent` (SYSTEM). Meldet alle 5 Min. (`/api/agent/report`),
   Scan alle 4 h bzw. auf Anforderung, installiert offene Läufe über die WUA-COM-Schnittstelle (kein PowerShell),
   steuert den Neustart je Gruppe (`Worker.cs`). Konfiguration in `HKLM\SOFTWARE\DNWsus\Agent` (ServerUrl, CertHash),
   Zustand/Log in `C:\ProgramData\DNWsus\Agent`. Kein Selbst-Update (neue Versionen per GPO/MSI).
-- `src/DnwSus.Hinweis` – WinForms-Popup (.NET 4.8), vom Agenten per CreateProcessAsUser in der Benutzersitzung gestartet.
+- `src/DnwSus.Hinweis` – WinForms-Popup (.NET Framework 4.6.2), vom Agenten per CreateProcessAsUser in der Benutzersitzung gestartet.
   Antwort per Exit-Code: 0 = später, 1 = jetzt, 1000+n = in n Minuten.
 - `src/DnwSus.Server/Api/AgentContracts.cs` und `src/DnwSus.Agent/Contracts.cs` sind das Austauschformat – immer gemeinsam ändern.
 - `setup/Agent`, `setup/Server` – WiX 5 (WixToolset.Sdk 5.0.2). `docs/Installation.md` – Installation, GPO, Testcheckliste.
