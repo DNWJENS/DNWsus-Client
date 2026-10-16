@@ -57,4 +57,6 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   UAC-gefilterte Tokens (Domänen-Admins nur „deny-only“, wenn der Browser nicht erhöht läuft).
 - Offen: **Serverumzug** (Agenten auf neuen Server umziehen – Idee: alter Server liefert neue URL + Fingerabdruck aus,
   Agent übernimmt sie; Notweg: neue Agent-MSI per GPO). Benutzer am Ende daran erinnern.
+- Offen (nach dem ersten Test): Agent-Push zum Troubleshooting – Rechtsklick → „Agent installieren“, Admin-Passwort
+  einmalig im Dialog, **nie speichern**; MSI über `\\PC\ADMIN$`, Start per WinRM oder WMI (kein PsExec-artiger Weg).
 - Offen: Logo im Hinweis (Benutzer liefert transparente Version), Code-Signatur (öffentliches Zertifikat oder Trusted Signing).
