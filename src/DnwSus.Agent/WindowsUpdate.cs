@@ -6,18 +6,30 @@ namespace DnwSus.Agent
 {
     /// <summary>
     /// Suche und Installation über die Windows-Update-Schnittstelle (WUA-COM, wie in der Windows-Update-Einstellungsseite).
-    /// Kein PowerShell: die COM-Objekte werden direkt angesprochen. Updatequelle ist, was am Client eingestellt ist
-    /// (Microsoft Update oder WSUS).
+    /// Kein PowerShell: die COM-Objekte werden direkt angesprochen.
+    /// Updatequelle ist bewusst immer **Windows Update direkt** (ServerSelection = ssWindowsUpdate), unabhängig von
+    /// einer eventuell per GPO gesetzten WSUS-Zuweisung. Sonst läuft die Abfrage in einen (oft unerreichbaren) WSUS
+    /// und bricht mit Timeout 0x80072EE2 ab. DNWsus steuert die Updates selbst, deshalb WSUS hier ignorieren.
     /// </summary>
     internal static class WindowsUpdate
     {
         private const string Criteria = "IsInstalled=0 and Type='Software' and IsHidden=0";
 
+        // ServerSelection-Werte der WUA: 0=Default, 1=ManagedServer (WSUS), 2=WindowsUpdate, 3=Others
+        private const int SsWindowsUpdate = 2;
+
+        private static dynamic CreateSearcher(dynamic session)
+        {
+            dynamic searcher = session.CreateUpdateSearcher();
+            searcher.ServerSelection = SsWindowsUpdate; // direkt Windows Update, WSUS-Policy ignorieren
+            return searcher;
+        }
+
         public static List<UpdateItem> Scan()
         {
             dynamic session = CreateCom("Microsoft.Update.Session");
             session.ClientApplicationID = "DNWsus Agent";
-            dynamic searcher = session.CreateUpdateSearcher();
+            dynamic searcher = CreateSearcher(session);
             dynamic result = searcher.Search(Criteria);
 
             var list = new List<UpdateItem>();
@@ -34,7 +46,7 @@ namespace DnwSus.Agent
             setState("Sucht nach Updates");
             dynamic session = CreateCom("Microsoft.Update.Session");
             session.ClientApplicationID = "DNWsus Agent";
-            dynamic searcher = session.CreateUpdateSearcher();
+            dynamic searcher = CreateSearcher(session);
             dynamic found = searcher.Search(Criteria);
 
             dynamic toInstall = CreateCom("Microsoft.Update.UpdateColl");
