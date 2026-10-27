@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 
 namespace DnwSus.Agent
@@ -136,9 +137,14 @@ namespace DnwSus.Agent
 
             if (_work != null && _work.IsAlive) return;
 
-            if (response.Group > 0 && response.InstallRunIds != null && response.InstallRunIds.Count > 0)
+            // Offene Läufe bevorzugt über InstallRuns (mit Reboot-Zeit); gelten auch für gruppenlose Clients (manuell).
+            var openRuns = response.InstallRuns != null && response.InstallRuns.Count > 0
+                ? response.InstallRuns
+                : (response.InstallRunIds ?? new List<long>()).Select(id => new InstallRun { Id = id }).ToList();
+
+            if (openRuns.Count > 0)
             {
-                StartWork(() => Install(response.InstallRunIds, response.Group));
+                StartWork(() => Install(openRuns, response.Group));
             }
             else
             {
@@ -214,8 +220,9 @@ namespace DnwSus.Agent
             }
         }
 
-        private void Install(List<long> runIds, int group)
+        private void Install(List<InstallRun> runs, int group)
         {
+            var runIds = runs.Select(r => r.Id).ToList();
             Log.Info("Installation für Lauf " + string.Join(", ", runIds) + " (Gruppe " + group + ") beginnt.");
             InstallReport report;
             try
@@ -236,6 +243,19 @@ namespace DnwSus.Agent
             report.RunIds = runIds;
             Log.Info("Installation: " + report.Message + (report.RebootRequired ? ", Neustart erforderlich" : ""));
 
+            // Neustart-Modus bestimmen: ein manueller Lauf mit Reboot-Zeit übersteuert das Gruppen-Verhalten.
+            DateTime? manualRebootAt = null;
+            bool hasGroupRun = false;
+            foreach (var r in runs)
+            {
+                if (r.Manual)
+                {
+                    var at = AgentState.Parse(r.RebootAt);
+                    if (at.HasValue && (manualRebootAt == null || at.Value < manualRebootAt.Value)) manualRebootAt = at.Value;
+                }
+                else hasGroupRun = true;
+            }
+
             lock (_sync)
             {
                 _state.UnreportedInstall = report;
@@ -243,7 +263,20 @@ namespace DnwSus.Agent
                 {
                     _state.ClearReboot();
                     _state.RebootPendingSince = AgentState.Format(DateTime.Now);
-                    _state.RebootGroup = group;
+                    if (manualRebootAt.HasValue)
+                    {
+                        _state.RebootGroup = 0; // 0 = manueller/direkter Neustart ohne Zustimmungs-Popup
+                        _state.RebootScheduledAt = AgentState.Format(manualRebootAt.Value);
+                    }
+                    else if (hasGroupRun)
+                    {
+                        _state.RebootGroup = group;
+                    }
+                    else
+                    {
+                        // nur manuelle Läufe ohne Reboot-Zeit → kein erzwungener Neustart, nur als „ausstehend“ sichtbar
+                        _state.RebootPendingSince = "";
+                    }
                 }
                 _state.Save();
             }
@@ -274,26 +307,32 @@ namespace DnwSus.Agent
                 var now = DateTime.Now;
                 var initiated = AgentState.Parse(_state.RebootInitiatedAt);
                 if (initiated.HasValue && now - initiated.Value < TimeSpan.FromMinutes(10)) return; // Neustart läuft
+                // Fester Neustart-Zeitpunkt (manueller Lauf oder Gruppe 2/3 nach Festlegung): dann neu starten,
+                // unabhängig davon, ob jemand angemeldet ist. Ist jemand da, 5 Minuten vorher ein Hinweis.
+                var scheduled = AgentState.Parse(_state.RebootScheduledAt);
+                if (scheduled.HasValue)
+                {
+                    if (now >= scheduled.Value)
+                    {
+                        Reboot("geplanter Zeitpunkt erreicht");
+                        return;
+                    }
+                    var sess = SafeGetSession();
+                    if (sess != null && !_hintRunning && !_state.CountdownShown && scheduled.Value - now <= CountdownLength)
+                    {
+                        _state.CountdownShown = true;
+                        ShowHint(sess, "countdown " + AgentState.Format(scheduled.Value));
+                    }
+                    _state.Save();
+                    return;
+                }
+
                 if (_hintRunning) return;
 
                 var session = SafeGetSession();
                 if (session == null)
                 {
                     Reboot("niemand angemeldet");
-                    return;
-                }
-
-                var scheduled = AgentState.Parse(_state.RebootScheduledAt);
-                if (scheduled.HasValue)
-                {
-                    if (now >= scheduled.Value)
-                        Reboot("geplanter Zeitpunkt erreicht");
-                    else if (!_state.CountdownShown && scheduled.Value - now <= CountdownLength)
-                    {
-                        _state.CountdownShown = true;
-                        ShowHint(session, "countdown " + AgentState.Format(scheduled.Value));
-                    }
-                    _state.Save();
                     return;
                 }
 

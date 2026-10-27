@@ -113,3 +113,26 @@ function confirmSelected(question) {
     if (count === 0) { alert("Bitte zuerst Clients auswählen."); return false; }
     return question === null || confirm(question + " (" + count + " ausgewählt)");
 }
+
+// Bulk-Soforthilfe: ausgewählte Clients ins Modal übernehmen, Neustart-Bedarf anzeigen.
+function openBulk() {
+    var checked = document.querySelectorAll("#clients input[name=selected]:checked");
+    if (checked.length === 0) { alert("Bitte zuerst Clients auswählen."); return; }
+    var container = document.getElementById("bulkSelected");
+    container.innerHTML = "";
+    var rebootCount = 0;
+    checked.forEach(function (cb) {
+        var inp = document.createElement("input");
+        inp.type = "hidden"; inp.name = "selected"; inp.value = cb.value;
+        container.appendChild(inp);
+        var row = cb.closest("tr");
+        if (row && row.getAttribute("data-reboot") === "1") rebootCount++;
+    });
+    document.getElementById("bulkSummary").textContent =
+        checked.length + " Client(s) ausgewählt – " + rebootCount + " benötigen voraussichtlich einen Neustart.";
+    document.getElementById("bulkModal").hidden = false;
+}
+
+function closeBulk() {
+    document.getElementById("bulkModal").hidden = true;
+}

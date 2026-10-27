@@ -61,7 +61,15 @@ namespace DnwSus.Agent
         /// <summary>1..3 = Update-Gruppe, 0 = keine, -1 = Konflikt.</summary>
         public int Group { get; set; }
         public List<long> InstallRunIds { get; set; } = new List<long>();
+        public List<InstallRun> InstallRuns { get; set; } = new List<InstallRun>();
         public bool ScanRequested { get; set; }
         public string ServerTime { get; set; } = "";
+    }
+
+    public sealed class InstallRun
+    {
+        public long Id { get; set; }
+        public bool Manual { get; set; }
+        public string RebootAt { get; set; } = "";
     }
 }

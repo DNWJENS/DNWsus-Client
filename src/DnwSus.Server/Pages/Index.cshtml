@@ -153,6 +153,7 @@
         <span class="spacer"></span>
         <span class="muted">AD-Stand: @s.LoadedAt.ToString("HH:mm:ss")</span>
         <a class="button secondary" href="?tab=@Model.Tab&refresh=true">AD neu laden</a>
+        <button type="button" class="button secondary bulk-btn" title="Soforthilfe für ausgewählte Clients (Updates/Neustart)" onclick="openBulk()">⋯</button>
     </div>
 
     <div class="toolbar actions">
@@ -196,6 +197,7 @@
                 var st = row.Status;
                 string groupLabel = Model.GroupLabel(c);
                 <tr class="@(c.IsStale ? "stale" : "")" data-stale="@(c.IsStale ? "1" : "0")" data-noagent="@(st?.LastContact == null ? "1" : "0")"
+                    data-reboot="@(IndexModel.RebootNeeded(st) ? "1" : "0")"
                     data-search="@($"{c.Name} {c.DnsName} {c.OperatingSystem} {groupLabel} {st?.UserText} {st?.IpAddresses}".ToLowerInvariant())">
                     <td class="sel"><input type="checkbox" name="selected" value="@c.Name" /></td>
                     <td title="@c.DistinguishedName"><a href="/Client?name=@c.Name"><b>@c.Name</b></a>@if (c.IsServer) { <span class="tag">Server</span> }</td>
@@ -233,3 +235,31 @@
 {
     <p class="muted empty">Keine Clients in dieser Ansicht.</p>
 }
+
+<div class="modal-overlay" id="bulkModal" hidden>
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Soforthilfe für ausgewählte Clients</h3>
+            <button type="button" class="modal-close" onclick="closeBulk()" aria-label="Schließen">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Bulk" class="modal-body">
+            <input type="hidden" name="tab" value="@Model.Tab" />
+            <div id="bulkSelected"></div>
+            <p id="bulkSummary" class="muted"></p>
+            <p class="muted">Manueller Eingriff bei dringenden Themen, unabhängig von den Gruppen-Zeitplänen. Wirkt nur auf Clients mit Agent.</p>
+            <label class="field">Updatestart
+                <input type="datetime-local" name="startAt" />
+                <span class="field-hint">leer = sofort</span>
+            </label>
+            <label class="field">Reboot-Zeit
+                <input type="datetime-local" name="rebootAt" />
+                <span class="field-hint">leer = kein erzwungener Neustart. Wird nur ausgeführt, wenn ein Neustart nötig ist, und übersteuert für diesen Lauf das Gruppen-Verhalten.</span>
+            </label>
+            <div class="modal-footer">
+                <button type="button" class="button secondary" onclick="closeBulk()">Abbrechen</button>
+                <button type="submit" class="button">Soforthilfe starten</button>
+            </div>
+        </form>
+    </div>
+</div>
+

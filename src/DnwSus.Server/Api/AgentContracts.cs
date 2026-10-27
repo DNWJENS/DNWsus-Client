@@ -67,11 +67,25 @@ public sealed class AgentResponse
     /// <summary>Update-Gruppe des Clients: 1..3, 0 = keine, -1 = Konflikt (mehrere Gruppen).</summary>
     public int Group { get; set; }
 
-    /// <summary>Offene Läufe, die der Agent jetzt installieren soll (leer = nichts zu tun).</summary>
+    /// <summary>Offene Läufe als reine IDs – für ältere Agenten (vor 2.1.9), die noch keine Reboot-Zeit kennen.</summary>
     public List<long> InstallRunIds { get; set; } = new();
+
+    /// <summary>Offene Läufe mit Reboot-Zeit/Manuell-Kennung (ab Agent 2.1.9). Leer = nichts zu tun.</summary>
+    public List<InstallRun> InstallRuns { get; set; } = new();
 
     /// <summary>Im Dashboard wurde ein neuer Scan angefordert.</summary>
     public bool ScanRequested { get; set; }
 
     public string ServerTime { get; set; } = "";
+}
+
+public sealed class InstallRun
+{
+    public long Id { get; set; }
+
+    /// <summary>Manueller Soforthilfe-Lauf: übersteuert das Gruppen-Neustart-Verhalten.</summary>
+    public bool Manual { get; set; }
+
+    /// <summary>Geplanter Neustart-Zeitpunkt (nur manuelle Läufe, nur falls Neustart nötig). Leer = kein erzwungener Neustart.</summary>
+    public string RebootAt { get; set; } = "";
 }

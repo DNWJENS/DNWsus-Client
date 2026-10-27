@@ -168,3 +168,17 @@ footer.version { padding: 10px 24px 16px; font-size: 11px; color: var(--faint); 
 /* ---- Badges / Marker ---- */
 .tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 100px; font-size: 11px; font-weight: 600; background: rgba(139, 152, 175, 0.18); color: var(--muted); }
 .tag.outdated { background: rgba(232, 185, 63, 0.16); color: var(--warn); }
+
+/* ---- Bulk-Soforthilfe (Modal) ---- */
+.bulk-btn { font-size: 18px; line-height: 1; padding: 6px 12px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+.modal-overlay[hidden] { display: none; }
+.modal { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; width: 520px; max-width: calc(100vw - 48px); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.modal-header h3 { margin: 0; }
+.modal-close { background: transparent; border: none; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 6px; }
+.modal-body { padding: 18px; }
+.field { display: flex; flex-direction: column; gap: 4px; margin: 12px 0; font-size: 13px; color: var(--muted); }
+.field input[type=datetime-local] { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font: inherit; max-width: 260px; }
+.field-hint { font-size: 12px; color: var(--faint); }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }

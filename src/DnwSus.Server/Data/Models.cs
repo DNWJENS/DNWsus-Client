@@ -55,6 +55,23 @@ public sealed class Run
     public string Source { get; set; } = "";
     public bool Cancelled { get; set; }
     public int DoneCount { get; set; }
+
+    /// <summary>
+    /// Manueller Soforthilfe-Lauf aus dem Bulk-Menü: wirkt gezielt auf einzelne Clients unabhängig von der Gruppe
+    /// und übersteuert für diesen Lauf das Gruppen-Neustart-Verhalten (Neustart zur <see cref="RebootAt"/>, falls nötig).
+    /// </summary>
+    public bool IsManual { get; set; }
+
+    /// <summary>Geplanter Neustart-Zeitpunkt eines manuellen Laufs (nur ausgeführt, wenn ein Neustart nötig ist). Null = kein erzwungener Neustart.</summary>
+    public DateTime? RebootAt { get; set; }
+}
+
+/// <summary>Ein offener Lauf, den ein Agent jetzt abarbeiten soll (mit optionaler Neustart-Zeit eines manuellen Laufs).</summary>
+public sealed class OpenRun
+{
+    public long Id { get; init; }
+    public DateTime? RebootAt { get; init; }
+    public bool IsManual { get; init; }
 }
 
 public enum ScheduleKind { Woechentlich, Patchday }

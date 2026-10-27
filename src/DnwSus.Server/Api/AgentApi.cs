@@ -44,8 +44,16 @@ public static class AgentApi
             ScanRequested = db.IsScanRequested(name),
             ServerTime = now.ToString("yyyy-MM-ddTHH:mm:ss")
         };
-        if (group > 0)
-            response.InstallRunIds = db.GetOpenRunIds(name, group, now);
+
+        // Gruppen-Läufe gelten nur mit gültiger Gruppe; manuelle Soforthilfe-Läufe gelten unabhängig davon.
+        var open = db.GetOpenRuns(name, group > 0 ? group : 0, now);
+        response.InstallRuns = open.Select(r => new InstallRun
+        {
+            Id = r.Id,
+            Manual = r.IsManual,
+            RebootAt = r.RebootAt.HasValue ? r.RebootAt.Value.ToString("yyyy-MM-ddTHH:mm:ss") : ""
+        }).ToList();
+        response.InstallRunIds = open.Select(r => r.Id).ToList();
 
         return Results.Json(response);
     }

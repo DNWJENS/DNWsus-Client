@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     group_no INTEGER NOT NULL, client TEXT COLLATE NOCASE,
     start_at TEXT NOT NULL, created_at TEXT NOT NULL, created_by TEXT, source TEXT,
-    cancelled INTEGER DEFAULT 0);
+    cancelled INTEGER DEFAULT 0, is_manual INTEGER DEFAULT 0, reboot_at TEXT);
 CREATE TABLE IF NOT EXISTS run_done (
     run_id INTEGER NOT NULL, client TEXT NOT NULL COLLATE NOCASE,
     finished_at TEXT, success INTEGER, message TEXT,
@@ -54,6 +54,21 @@ CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     time TEXT NOT NULL, client TEXT COLLATE NOCASE, text TEXT, is_error INTEGER DEFAULT 0);
 CREATE INDEX IF NOT EXISTS ix_events_client ON events(client, id);");
+
+        // Migration für bestehende Datenbanken (CREATE TABLE IF NOT EXISTS ergänzt keine Spalten).
+        AddColumnIfMissing("runs", "is_manual", "INTEGER DEFAULT 0");
+        AddColumnIfMissing("runs", "reboot_at", "TEXT");
+    }
+
+    private void AddColumnIfMissing(string table, string column, string definition)
+    {
+        using var info = Command("PRAGMA table_info(" + table + ");");
+        using var reader = info.ExecuteReader();
+        while (reader.Read())
+            if (string.Equals(reader["name"] as string, column, StringComparison.OrdinalIgnoreCase))
+                return;
+        reader.Close();
+        Execute($"ALTER TABLE {table} ADD COLUMN {column} {definition};");
     }
 
     // ------------------------------------------------------------------ Clients
@@ -172,14 +187,16 @@ WHERE name=$name;",
 
     // ------------------------------------------------------------------ Läufe
 
-    public long CreateRun(int group, string? client, DateTime startAt, string createdBy, string source)
+    public long CreateRun(int group, string? client, DateTime startAt, string createdBy, string source,
+        bool isManual = false, DateTime? rebootAt = null)
     {
         lock (_lock)
         {
-            using var cmd = Command(@"INSERT INTO runs (group_no, client, start_at, created_at, created_by, source)
-                                      VALUES ($g, $c, $start, $now, $by, $src); SELECT last_insert_rowid();",
+            using var cmd = Command(@"INSERT INTO runs (group_no, client, start_at, created_at, created_by, source, is_manual, reboot_at)
+                                      VALUES ($g, $c, $start, $now, $by, $src, $man, $reb); SELECT last_insert_rowid();",
                 ("$g", group), ("$c", client), ("$start", Format(startAt)), ("$now", Format(DateTime.Now)),
-                ("$by", createdBy), ("$src", source));
+                ("$by", createdBy), ("$src", source), ("$man", isManual ? 1 : 0),
+                ("$reb", rebootAt.HasValue ? Format(rebootAt.Value) : null));
             return Convert.ToInt64(cmd.ExecuteScalar());
         }
     }
@@ -189,21 +206,31 @@ WHERE name=$name;",
         lock (_lock) Execute("UPDATE runs SET cancelled=1 WHERE id=$id;", ("$id", id));
     }
 
-    /// <summary>Läufe, die dieser Client jetzt installieren soll: gestartet, nicht abgebrochen, von ihm noch nicht erledigt.</summary>
-    public List<long> GetOpenRunIds(string client, int group, DateTime now)
+    /// <summary>
+    /// Läufe, die dieser Client jetzt abarbeiten soll: Gruppen-Läufe seiner Gruppe sowie manuelle Läufe, die gezielt
+    /// auf ihn zeigen (unabhängig von der Gruppe). Jeweils gestartet, nicht abgebrochen, von ihm noch nicht erledigt.
+    /// </summary>
+    public List<OpenRun> GetOpenRuns(string client, int group, DateTime now)
     {
         lock (_lock)
         {
             using var cmd = Command(@"
-SELECT r.id FROM runs r
-WHERE r.cancelled=0 AND r.group_no=$g AND r.start_at <= $now
-  AND (r.client IS NULL OR r.client=$c)
+SELECT r.id, r.is_manual, r.reboot_at FROM runs r
+WHERE r.cancelled=0 AND r.start_at <= $now
+  AND ( (r.is_manual=0 AND r.group_no=$g AND (r.client IS NULL OR r.client=$c))
+     OR (r.is_manual=1 AND r.client=$c) )
   AND NOT EXISTS (SELECT 1 FROM run_done d WHERE d.run_id=r.id AND d.client=$c)
 ORDER BY r.id;", ("$g", group), ("$now", Format(now)), ("$c", client));
             using var reader = cmd.ExecuteReader();
-            var ids = new List<long>();
-            while (reader.Read()) ids.Add(reader.GetInt64(0));
-            return ids;
+            var runs = new List<OpenRun>();
+            while (reader.Read())
+                runs.Add(new OpenRun
+                {
+                    Id = reader.GetInt64(0),
+                    IsManual = Convert.ToInt64(reader.GetValue(1)) == 1,
+                    RebootAt = ParseDate(reader.IsDBNull(2) ? null : reader.GetValue(2))
+                });
+            return runs;
         }
     }
 
@@ -253,7 +280,9 @@ ORDER BY r.id DESC LIMIT $limit;", ("$g", group), ("$limit", limit));
                     CreatedBy = reader["created_by"] as string ?? "",
                     Source = reader["source"] as string ?? "",
                     Cancelled = Convert.ToInt64(reader["cancelled"]) == 1,
-                    DoneCount = Convert.ToInt32(reader["done"])
+                    DoneCount = Convert.ToInt32(reader["done"]),
+                    IsManual = Convert.ToInt64(reader["is_manual"]) == 1,
+                    RebootAt = ParseDate(reader["reboot_at"])
                 });
             }
             return runs;

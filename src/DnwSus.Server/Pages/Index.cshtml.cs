@@ -140,6 +140,46 @@ public sealed class IndexModel : PageModel
         return RedirectToPage(new { tab = "grp" + group });
     }
 
+    /// <summary>
+    /// Manuelle Soforthilfe aus dem Bulk-Menü: für die ausgewählten Clients (mit Agent, gruppenunabhängig) einen Lauf
+    /// mit Updatestart und optionaler Reboot-Zeit anlegen. Übersteuert für diesen Lauf das Gruppen-Neustart-Verhalten.
+    /// </summary>
+    public IActionResult OnPostBulk(string tab, string[]? selected, string? startAt, string? rebootAt)
+    {
+        var names = (selected ?? Array.Empty<string>()).Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+        if (names.Count == 0)
+        {
+            Message = "Keine Clients ausgewählt.";
+            return RedirectToPage(new { tab });
+        }
+
+        DateTime start = ParseLocal(startAt) ?? DateTime.Now;
+        DateTime? reboot = ParseLocal(rebootAt);
+        string by = User.Identity?.Name ?? "";
+        var snapshot = _ad.GetSnapshot();
+
+        int created = 0, skipped = 0;
+        foreach (var name in names)
+        {
+            // Nur Clients mit Agent; sonst lässt sich nichts installieren.
+            if (_db.GetStatus(name)?.LastContact == null) { skipped++; continue; }
+            var client = snapshot.Clients.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            int group = client is { Groups.Count: 1 } ? client.Groups[0] : 0;
+            _db.CreateRun(group, name, start, by, "Soforthilfe", isManual: true, rebootAt: reboot);
+            created++;
+        }
+
+        string when = start <= DateTime.Now ? "sofort" : "ab " + start.ToString("dd.MM.yyyy HH:mm");
+        string reb = reboot.HasValue ? $", Neustart falls nötig um {reboot.Value:dd.MM.yyyy HH:mm}" : ", kein erzwungener Neustart";
+        Message = $"Soforthilfe für {created} Client(s) angelegt (Updatestart {when}{reb})." +
+                  (skipped > 0 ? $" {skipped} ohne Agent übersprungen." : "");
+        return RedirectToPage(new { tab });
+    }
+
+    /// <summary>Braucht der Client (laut Scan oder Windows) einen Neustart?</summary>
+    public static bool RebootNeeded(ClientStatus? st) =>
+        st != null && (st.RebootPendingSince != null || st.PendingUpdates.Any(u => u.RebootRequired));
+
     public IActionResult OnPostAddSchedule(int group, string kind, int[]? days, int offset, string? time)
     {
         if (group is < 1 or > 3) return BadRequest();
