@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS schedules (
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     time TEXT NOT NULL, client TEXT COLLATE NOCASE, text TEXT, is_error INTEGER DEFAULT 0);
-CREATE INDEX IF NOT EXISTS ix_events_client ON events(client, id);");
+CREATE INDEX IF NOT EXISTS ix_events_client ON events(client, id);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);");
 
         // Migration für bestehende Datenbanken (CREATE TABLE IF NOT EXISTS ergänzt keine Spalten).
         AddColumnIfMissing("runs", "is_manual", "INTEGER DEFAULT 0");
@@ -339,6 +340,24 @@ ORDER BY r.id DESC LIMIT $limit;", ("$g", group), ("$limit", limit));
     public void SetScheduleFired(long id, DateTime firedAt)
     {
         lock (_lock) Execute("UPDATE schedules SET last_fired=$t WHERE id=$id;", ("$id", id), ("$t", Format(firedAt)));
+    }
+
+    // ------------------------------------------------------------------ Einstellungen
+
+    public string? GetSetting(string key)
+    {
+        lock (_lock)
+        {
+            using var cmd = Command("SELECT value FROM settings WHERE key=$k;", ("$k", key));
+            return cmd.ExecuteScalar() as string;
+        }
+    }
+
+    public void SetSetting(string key, string value)
+    {
+        lock (_lock)
+            Execute("INSERT INTO settings (key, value) VALUES ($k, $v) ON CONFLICT(key) DO UPDATE SET value=$v;",
+                ("$k", key), ("$v", value));
     }
 
     // ------------------------------------------------------------------ Ereignisse

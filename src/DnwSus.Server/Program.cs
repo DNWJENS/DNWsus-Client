@@ -40,6 +40,7 @@ builder.Services.AddSingleton<AdService>();
 builder.Services.AddSingleton<Database>();
 builder.Services.AddSingleton(new ServerIdentity(certificate, options.Port));
 builder.Services.AddSingleton<AgentMsiService>();
+builder.Services.AddSingleton<AgentDistribution>();
 builder.Services.AddHostedService<ScheduleService>();
 builder.Services.AddRazorPages();
 // Agent (.NET Framework 4.6.2, JavaScriptSerializer) schreibt Eigenschaftsnamen in PascalCase

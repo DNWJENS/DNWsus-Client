@@ -53,18 +53,19 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   Clients in mehreren Gruppen = Konflikt, werden nicht aktualisiert.
 
 ## Stand / offen
-- v2.1.8: GPO-Verteilung (Zielgruppenadressierung nach GRP_Update1-3, selbstheilende Aufgabe mit `msiexec /i` von NETLOGON)
-  getestet und läuft; Agent scannt direkt gegen Windows Update (ServerSelection=ssWindowsUpdate). Dashboard: sortierbare
-  Spalten, Agent-Version-Spalte, DNWironment-Design (Palette aus `D:\claude-projekte\DNWironment`, Logo aus `D:\claude-projekte\DNW-brand`).
-- Offen (nach den ersten Kundentests, Ziel: jeden manuellen Schritt automatisieren, da viele Mitarbeiter × viele Kunden):
-  - **Agent-MSI automatisch nach NETLOGON** nach einem Server-/Agent-Update (nicht manuell kopieren). Sicherer Weg:
-    Pull-Aufgabe auf dem DC (zieht per HTTPS vom Server), nicht Dienst auf DC legen, nicht swyx01 SYSVOL-Schreibrecht geben.
-  - **„Agent veraltet“-Markierung entschärfen**: Agent und Server teilen die Versionsnummer, daher flaggt jedes reine
-    Dashboard-Update alle Agenten als „alt“, obwohl der Agent unverändert ist. Separate Agent-Mindestversion o. Ä.
-- Offen: **Serverumzug** (Agenten auf neuen Server umziehen – Idee: alter Server liefert neue URL + Fingerabdruck aus,
-  Agent übernimmt sie; Notweg: neue Agent-MSI per GPO). Benutzer am Ende daran erinnern.
-- Offen: **Serverumzug** (Agenten auf neuen Server umziehen – Idee: alter Server liefert neue URL + Fingerabdruck aus,
-  Agent übernimmt sie; Notweg: neue Agent-MSI per GPO). Benutzer am Ende daran erinnern.
-- Offen (nach dem ersten Test): Agent-Push zum Troubleshooting – Rechtsklick → „Agent installieren“, Admin-Passwort
-  einmalig im Dialog, **nie speichern**; MSI über `\\PC\ADMIN$`, Start per WinRM oder WMI (kein PsExec-artiger Weg).
+- Getestet und läuft: GPO-Verteilung (Zielgruppenadressierung nach GRP_Update1-3, selbstheilende Aufgabe
+  `/c msiexec /i "\\…\DnwSus-Agent.msi" /qn /norestart` – **ohne** `if not exist`-Guard, sonst keine Upgrades!). Agent scannt
+  direkt gegen Windows Update (ssWindowsUpdate). Dashboard im DNWironment-Design (Palette/Logo aus `D:\claude-projekte\DNWironment`
+  bzw. `DNW-brand`), sortierbare Spalten, Agent-Version-Spalte.
+- v2.1.9: Bulk-Soforthilfe („…“-Menü): Clients anhaken, Updatestart + Reboot-Zeit; manuelle, gruppenunabhängige Läufe,
+  die das Gruppen-Neustart-Verhalten übersteuern. Agent-Format um `InstallRuns` (Id/Manual/RebootAt) erweitert.
+- v2.1.10: Agent-Verteilung-Seite kopiert die gebundene MSI an einen Zielpfad (fester Name, überschreibt): ohne
+  Zugangsdaten mit Server-Identität (eigene Freigabe, unbeaufsichtigt möglich) oder mit einmaligen Credentials
+  (NETLOGON; **Passwörter werden nie gespeichert**; Double-Hop verhindert SSO zur Remote-Freigabe).
+- **Remote-Agent-Push aus dem Dashboard (ADMIN$ + WinRM/WMI o. Ä.) wird NICHT gebaut** – feste Grenze (laterale-Bewegung-Technik).
+  Verteilung läuft über GPO; für Massen-Push ist das Kunden-RMM/Intune zuständig.
+- Offen (nach den ersten Kundentests): **„Agent veraltet“-Markierung entschärfen** (Agent/Server teilen die Version →
+  jedes Dashboard-Update flaggt alle Agenten als „alt“; separate Agent-Mindestversion o. Ä.) und **MSI-Härtung**, damit ein
+  gleichversionierter `msiexec /i`-Lauf ein echtes No-Op ist (Dienst nicht kurz neu starten).
+- Offen: **Serverumzug** (Agenten auf neuen Server – alter Server liefert neue URL + Fingerabdruck aus; Notweg: neue Agent-MSI per GPO).
 - Offen: Logo im Hinweis (Benutzer liefert transparente Version), Code-Signatur (öffentliches Zertifikat oder Trusted Signing).

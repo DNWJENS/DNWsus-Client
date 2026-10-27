@@ -6,6 +6,36 @@
 
 <h2>Agent verteilen</h2>
 
+@if (Model.Message != null)
+{
+    <div class="banner @(Model.MessageIsError ? "error" : "info")">@Model.Message</div>
+}
+
+<section class="panel">
+    <h3>Agent-MSI automatisch an die Freigabe kopieren</h3>
+    <p class="muted">Der Server legt die aktuelle, gebundene Agent-MSI an einen von den Clients erreichbaren Pfad –
+        <b>fester Dateiname, wird überschrieben</b>, damit die GPO-Aufgabe nie angepasst werden muss. So entfällt das manuelle Kopieren nach jedem Update.</p>
+    <form method="post" asp-page-handler="Copy" class="dist-form">
+        <label class="field">Zielpfad (UNC, inkl. fester Dateiname)
+            <input type="text" name="targetPath" value="@Model.TargetPath" placeholder="\\fileserver\DNWsus$\DnwSus-Agent.msi" autocomplete="off" />
+        </label>
+        <p class="muted" style="margin:10px 0 2px">Zwei Wege, <b>beide ohne gespeichertes Passwort</b>:</p>
+        <ul class="muted" style="margin:0 0 10px">
+            <li><b>Eigene Freigabe:</b> Schreibrecht für das Computerkonto dieses Servers → Benutzer/Passwort leer lassen, der Server kopiert mit eigener Identität (geht auch unbeaufsichtigt).</li>
+            <li><b>NETLOGON/SYSVOL:</b> Benutzer und Passwort eines Kontos mit Schreibrecht eingeben – gilt <b>nur für diese Kopie</b>, wird nicht gespeichert (SYSTEM darf dort nicht schreiben).</li>
+        </ul>
+        <div class="dist-cred">
+            <label class="field">Benutzer (optional)
+                <input type="text" name="user" placeholder="DOMÄNE\Admin" autocomplete="off" />
+            </label>
+            <label class="field">Passwort (optional, nicht gespeichert)
+                <input type="password" name="password" autocomplete="new-password" />
+            </label>
+        </div>
+        <button type="submit" class="button">Jetzt kopieren / testen</button>
+    </form>
+</section>
+
 <section class="panels">
     <div class="panel">
         <h3>Agent-MSI</h3>
