@@ -183,6 +183,7 @@
                 }
                 <th>Letzter Benutzer</th>
                 <th>Letzter Serverkontakt</th>
+                <th title="Agent-Version; abweichend von @IndexModel.CurrentAgentVersion = veraltet">Agent</th>
                 @if (!ungrouped) { <th>Fehler</th> }
                 <th>Betriebssystem</th>
                 <th title="lastLogonTimestamp aus dem AD, wird nur etwa alle 14 Tage aktualisiert">AD-Anmeldung</th>
@@ -205,22 +206,23 @@
                     <td class="@(st?.LastContact == null || st.RebootPendingSince != null ? "warn" : "")">@IndexModel.StateText(st)</td>
                     @if (groupTab)
                     {
-                        <td>@(row.PendingRunStart == null ? "—" : row.PendingRunStart > DateTime.Now ? "geplant " + row.PendingRunStart.Value.ToString("dd.MM. HH:mm") : "offen")</td>
+                        <td data-sort="@(row.PendingRunStart?.ToString("yyyyMMddHHmmss") ?? "0")">@(row.PendingRunStart == null ? "—" : row.PendingRunStart > DateTime.Now ? "geplant " + row.PendingRunStart.Value.ToString("dd.MM. HH:mm") : "offen")</td>
                     }
-                    <td title="@(st?.LastScan == null ? "" : "Scan: " + IndexModel.FormatDate(st.LastScan))">@(st?.LastScan == null ? "—" : st.PendingCount.ToString())</td>
+                    <td data-sort="@(st?.LastScan == null ? -1 : st.PendingCount)" title="@(st?.LastScan == null ? "" : "Scan: " + IndexModel.FormatDate(st.LastScan))">@(st?.LastScan == null ? "—" : st.PendingCount.ToString())</td>
                     @if (!ungrouped)
                     {
-                        <td>@(st?.UptimeText ?? "—")</td>
+                        <td data-sort="@(st?.BootTime == null ? -1 : (long)(DateTime.Now - st.BootTime.Value).TotalMinutes)">@(st?.UptimeText ?? "—")</td>
                         <td>@(string.IsNullOrEmpty(st?.IpAddresses) ? "—" : st.IpAddresses)</td>
                     }
                     <td>@(string.IsNullOrEmpty(st?.UserText) ? "—" : st.UserText)</td>
-                    <td class="@(IndexModel.ContactIsOld(st) ? "warn" : "")" title="@IndexModel.FormatDate(st?.LastContact)">@(st?.LastContact == null ? "nie" : IndexModel.FormatAge(st.LastContact))</td>
+                    <td class="@(IndexModel.ContactIsOld(st) ? "warn" : "")" data-sort="@(st?.LastContact?.ToString("yyyyMMddHHmmss") ?? "0")" title="@IndexModel.FormatDate(st?.LastContact)">@(st?.LastContact == null ? "nie" : IndexModel.FormatAge(st.LastContact))</td>
+                    <td class="@(Model.IsAgentOutdated(st) ? "warn" : "")" data-sort="@(st?.AgentVersion ?? "")" title="@(Model.IsAgentOutdated(st) ? "veraltet – aktuell ist " + IndexModel.CurrentAgentVersion : "")">@(string.IsNullOrEmpty(st?.AgentVersion) ? "—" : st.AgentVersion)@if (Model.IsAgentOutdated(st)) { <span class="tag outdated">alt</span> }</td>
                     @if (!ungrouped)
                     {
                         <td class="error" title="@st?.LastError">@(string.IsNullOrEmpty(st?.LastError) ? "" : (st.LastError.Length > 40 ? st.LastError[..40] + "…" : st.LastError))</td>
                     }
                     <td>@c.OperatingSystem <span class="muted">@c.OsVersion</span></td>
-                    <td title="@IndexModel.FormatDate(c.LastAdLogon)">@IndexModel.FormatAge(c.LastAdLogon)</td>
+                    <td data-sort="@(c.LastAdLogon?.ToString("yyyyMMddHHmmss") ?? "0")" title="@IndexModel.FormatDate(c.LastAdLogon)">@IndexModel.FormatAge(c.LastAdLogon)</td>
                 </tr>
             }
         </tbody>

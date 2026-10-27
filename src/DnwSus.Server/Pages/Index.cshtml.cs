@@ -43,6 +43,14 @@ public sealed class IndexModel : PageModel
 
     [TempData] public string? Message { get; set; }
 
+    /// <summary>Aktuelle Agent-Version (= Server-Version). Agenten mit abweichender Version gelten als veraltet.</summary>
+    public static string CurrentAgentVersion { get; } =
+        typeof(IndexModel).Assembly.GetName().Version?.ToString(3) ?? "";
+
+    public bool IsAgentOutdated(ClientStatus? st) =>
+        st?.LastContact != null && !string.IsNullOrEmpty(st.AgentVersion) &&
+        !string.Equals(st.AgentVersion, CurrentAgentVersion, StringComparison.Ordinal);
+
     public int Ungrouped => Snapshot.Clients.Count(c => c.Groups.Count == 0);
     public int Conflicts => Snapshot.Clients.Count(c => c.Groups.Count > 1);
     public int CountInGroup(int number) => Snapshot.Clients.Count(c => c.Groups.Contains(number));

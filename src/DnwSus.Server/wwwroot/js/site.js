@@ -53,6 +53,60 @@
     }
 })();
 
+// Sortierbare Spalten für alle .grid-Tabellen mit Kopfzeile. Klick auf einen Spaltenkopf sortiert,
+// erneuter Klick dreht die Richtung. Zahlen/Datum über data-sort an der Zelle (sonst nach Text).
+(function () {
+    function cellValue(row, col) {
+        var cell = row.cells[col];
+        if (!cell) return "";
+        var v = cell.getAttribute("data-sort");
+        return v !== null ? v : cell.textContent.trim();
+    }
+
+    function sortTable(table, col, th) {
+        var body = table.tBodies[0];
+        var rows = Array.prototype.slice.call(body.rows);
+        if (rows.length === 0) return;
+        var asc = th.getAttribute("data-dir") !== "asc";
+
+        var values = rows.map(function (r) { return cellValue(r, col).replace(",", "."); });
+        var numeric = values.some(function (v) { return v !== ""; }) &&
+                      values.every(function (v) { return v === "" || !isNaN(Number(v)); });
+
+        rows.sort(function (a, b) {
+            var x = cellValue(a, col).replace(",", "."), y = cellValue(b, col).replace(",", ".");
+            if (numeric) {
+                return asc ? (Number(x) || 0) - (Number(y) || 0) : (Number(y) || 0) - (Number(x) || 0);
+            }
+            return asc ? x.localeCompare(y, "de", { sensitivity: "base", numeric: true })
+                       : y.localeCompare(x, "de", { sensitivity: "base", numeric: true });
+        });
+
+        rows.forEach(function (r) { body.appendChild(r); });
+
+        var heads = th.parentNode.cells;
+        for (var i = 0; i < heads.length; i++) {
+            heads[i].removeAttribute("data-dir");
+            heads[i].classList.remove("sorted-asc", "sorted-desc");
+        }
+        th.setAttribute("data-dir", asc ? "asc" : "desc");
+        th.classList.add(asc ? "sorted-asc" : "sorted-desc");
+    }
+
+    document.querySelectorAll("table.grid").forEach(function (table) {
+        if (!table.tHead || table.tBodies.length === 0) return;
+        var headers = table.tHead.rows[0].cells;
+        for (var c = 0; c < headers.length; c++) {
+            var th = headers[c];
+            if (th.classList.contains("sel")) continue; // Auswahl-Spalte nicht sortieren
+            th.classList.add("sortable-col");
+            (function (col, head) {
+                head.addEventListener("click", function () { sortTable(table, col, head); });
+            })(c, th);
+        }
+    });
+})();
+
 // Vor Aktionen auf ausgewählten Clients prüfen, ob überhaupt etwas ausgewählt ist.
 function confirmSelected(question) {
     var count = document.querySelectorAll("#clients input[name=selected]:checked").length;

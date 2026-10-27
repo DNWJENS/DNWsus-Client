@@ -4,11 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DNWsus – @ViewData["Title"]</title>
+    <link rel="icon" href="~/img/dnw-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
     <header class="top">
-        <span class="brand">DNWsus</span>
+        <a class="brand" href="/" aria-label="DNWsus, Startseite">
+            <img class="brand-logo" src="~/img/dnw-logo.png" alt="Die Netz-Werker AG" />
+            <span class="brand-divider"></span>
+            <span class="brand-word"><span class="brand-word-accent">DNW</span>sus</span>
+        </a>
         <span class="muted">Windows-Updates für Clients</span>
         <a class="navlink" href="/">Clients</a>
         <a class="navlink" href="/Agent">Agent &amp; Ereignisse</a>
