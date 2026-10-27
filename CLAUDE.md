@@ -53,8 +53,16 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   Clients in mehreren Gruppen = Konflikt, werden nicht aktualisiert.
 
 ## Stand / offen
-- v2.1.1: erster Test läuft (Server-Installation, Zertifikat, Anmeldung funktionieren). Fix: Admin-Prüfung berücksichtigt
-  UAC-gefilterte Tokens (Domänen-Admins nur „deny-only“, wenn der Browser nicht erhöht läuft).
+- v2.1.8: GPO-Verteilung (Zielgruppenadressierung nach GRP_Update1-3, selbstheilende Aufgabe mit `msiexec /i` von NETLOGON)
+  getestet und läuft; Agent scannt direkt gegen Windows Update (ServerSelection=ssWindowsUpdate). Dashboard: sortierbare
+  Spalten, Agent-Version-Spalte, DNWironment-Design (Palette aus `D:\claude-projekte\DNWironment`, Logo aus `D:\claude-projekte\DNW-brand`).
+- Offen (nach den ersten Kundentests, Ziel: jeden manuellen Schritt automatisieren, da viele Mitarbeiter × viele Kunden):
+  - **Agent-MSI automatisch nach NETLOGON** nach einem Server-/Agent-Update (nicht manuell kopieren). Sicherer Weg:
+    Pull-Aufgabe auf dem DC (zieht per HTTPS vom Server), nicht Dienst auf DC legen, nicht swyx01 SYSVOL-Schreibrecht geben.
+  - **„Agent veraltet“-Markierung entschärfen**: Agent und Server teilen die Versionsnummer, daher flaggt jedes reine
+    Dashboard-Update alle Agenten als „alt“, obwohl der Agent unverändert ist. Separate Agent-Mindestversion o. Ä.
+- Offen: **Serverumzug** (Agenten auf neuen Server umziehen – Idee: alter Server liefert neue URL + Fingerabdruck aus,
+  Agent übernimmt sie; Notweg: neue Agent-MSI per GPO). Benutzer am Ende daran erinnern.
 - Offen: **Serverumzug** (Agenten auf neuen Server umziehen – Idee: alter Server liefert neue URL + Fingerabdruck aus,
   Agent übernimmt sie; Notweg: neue Agent-MSI per GPO). Benutzer am Ende daran erinnern.
 - Offen (nach dem ersten Test): Agent-Push zum Troubleshooting – Rechtsklick → „Agent installieren“, Admin-Passwort
