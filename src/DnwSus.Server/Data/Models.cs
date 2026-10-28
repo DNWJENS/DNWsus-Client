@@ -64,6 +64,9 @@ public sealed class Run
 
     /// <summary>Geplanter Neustart-Zeitpunkt eines manuellen Laufs (nur ausgeführt, wenn ein Neustart nötig ist). Null = kein erzwungener Neustart.</summary>
     public DateTime? RebootAt { get; set; }
+
+    /// <summary>Kommagetrennte Update-Klassen, die dieser Lauf installieren soll. Leer = alle.</summary>
+    public string Classes { get; set; } = "";
 }
 
 /// <summary>Ein offener Lauf, den ein Agent jetzt abarbeiten soll (mit optionaler Neustart-Zeit eines manuellen Laufs).</summary>
@@ -72,6 +75,9 @@ public sealed class OpenRun
     public long Id { get; init; }
     public DateTime? RebootAt { get; init; }
     public bool IsManual { get; init; }
+
+    /// <summary>Kommagetrennte Update-Klassen, die dieser Lauf installieren soll. Leer = alle.</summary>
+    public string Classes { get; init; } = "";
 }
 
 public enum ScheduleKind { Woechentlich, Patchday }
@@ -91,6 +97,9 @@ public sealed class Schedule
 
     public TimeSpan Time { get; set; }
     public DateTime LastFired { get; set; }
+
+    /// <summary>Update-Klasse, die dieser Zeitplan installiert (null/leer = alle „Nach Zeitplan"-Klassen der Gruppe).</summary>
+    public string? Class { get; set; }
 
     private static readonly string[] DayNames = { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" };
 

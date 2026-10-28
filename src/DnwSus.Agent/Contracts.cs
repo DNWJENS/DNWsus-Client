@@ -35,6 +35,9 @@ namespace DnwSus.Agent
         public double SizeMB { get; set; }
         public bool RebootRequired { get; set; }
         public string Category { get; set; } = "";
+
+        /// <summary>Update-Klasse (Definition/Security/Quality/Feature/Driver/Product/Other) – vom Agenten bestimmt.</summary>
+        public string Class { get; set; } = "";
     }
 
     public sealed class InstallReport
@@ -46,6 +49,9 @@ namespace DnwSus.Agent
         public bool RebootRequired { get; set; }
         public string Message { get; set; } = "";
         public List<InstallItem> Items { get; set; } = new List<InstallItem>();
+
+        /// <summary>Klassen, von denen tatsächlich etwas installiert wurde – für die Neustart-Entscheidung.</summary>
+        public List<string> InstalledClasses { get; set; } = new List<string>();
     }
 
     public sealed class InstallItem
@@ -70,6 +76,19 @@ namespace DnwSus.Agent
 
         /// <summary>Serverumzug: SHA-256-Fingerabdruck des neuen Serverzertifikats.</summary>
         public string MoveToCertHash { get; set; } = "";
+
+        /// <summary>Regeln pro Update-Klasse für die Gruppe dieses Clients (leer = alte Logik: alles bei einem Lauf).</summary>
+        public List<ClassPolicy> Policy { get; set; } = new List<ClassPolicy>();
+    }
+
+    /// <summary>Regel für eine Update-Klasse: wann installiert, wie der Neustart gehandhabt wird.</summary>
+    public sealed class ClassPolicy
+    {
+        public string Class { get; set; } = "";
+        /// <summary>immediate = Agent installiert selbst · schedule = nur per Zeitplan-Lauf · manual = nur per Dashboard-Lauf · off = nie.</summary>
+        public string Install { get; set; } = "";
+        /// <summary>template = Neustart wie Gruppe · none = diese Klasse löst keinen erzwungenen Neustart aus.</summary>
+        public string Reboot { get; set; } = "template";
     }
 
     public sealed class InstallRun
@@ -77,5 +96,8 @@ namespace DnwSus.Agent
         public long Id { get; set; }
         public bool Manual { get; set; }
         public string RebootAt { get; set; } = "";
+
+        /// <summary>Kommagetrennte Klassen, die dieser Lauf installieren soll. Leer = alle (Abwärtskompatibilität).</summary>
+        public string Classes { get; set; } = "";
     }
 }

@@ -38,10 +38,14 @@ namespace DnwSus.Agent
             return list;
         }
 
-        /// <summary>Lädt alle ausstehenden Updates herunter und installiert sie.</summary>
-        public static InstallReport InstallAll(Action<string> setState)
+        /// <summary>
+        /// Lädt ausstehende Updates herunter und installiert sie. <paramref name="onlyClasses"/> beschränkt auf bestimmte
+        /// Klassen (null oder leer = alle). Die tatsächlich installierten Klassen stehen danach in <see cref="InstallReport.InstalledClasses"/>.
+        /// </summary>
+        public static InstallReport InstallAll(ICollection<string> onlyClasses, Action<string> setState)
         {
             var report = new InstallReport();
+            bool filter = onlyClasses != null && onlyClasses.Count > 0;
 
             setState("Sucht nach Updates");
             dynamic session = CreateCom("Microsoft.Update.Session");
@@ -53,10 +57,11 @@ namespace DnwSus.Agent
             for (int i = 0; i < found.Updates.Count; i++)
             {
                 dynamic update = found.Updates.Item(i);
+                var item = ToItem(update);
+                if (filter && !onlyClasses.Contains(item.Class)) continue; // Klasse nicht freigegeben
                 // Updates, die eine Eingabe des Benutzers erwarten, lassen sich unbeaufsichtigt nicht installieren.
                 if ((bool)update.InstallationBehavior.CanRequestUserInput)
                 {
-                    var item = ToItem(update);
                     report.Items.Add(new InstallItem { KB = item.KB, Title = item.Title, Success = false, Result = "übersprungen (erfordert Benutzereingabe)" });
                     continue;
                 }
@@ -109,6 +114,7 @@ namespace DnwSus.Agent
                         Success = ok,
                         Result = ok ? "installiert" : ResultText(code) + " (0x" + ((int)updateResult.HResult).ToString("X8") + ")"
                     });
+                    if (ok && !report.InstalledClasses.Contains(item.Class)) report.InstalledClasses.Add(item.Class);
                 }
             }
 
@@ -141,7 +147,9 @@ namespace DnwSus.Agent
         private static UpdateItem ToItem(dynamic update)
         {
             string kb = update.KBArticleIDs.Count > 0 ? (string)update.KBArticleIDs.Item(0) : "";
-            string category = update.Categories.Count > 0 ? (string)update.Categories.Item(0).Name : "";
+            var categories = new List<string>();
+            for (int c = 0; c < update.Categories.Count; c++)
+                categories.Add((string)update.Categories.Item(c).Name);
             int rebootBehavior = (int)update.InstallationBehavior.RebootBehavior;
             return new UpdateItem
             {
@@ -149,7 +157,8 @@ namespace DnwSus.Agent
                 Title = (string)update.Title,
                 SizeMB = Math.Round(Convert.ToDouble(update.MaxDownloadSize) / 1048576.0, 1),
                 RebootRequired = rebootBehavior != 0,
-                Category = category
+                Category = categories.Count > 0 ? categories[0] : "",
+                Class = UpdateClassifier.Classify(categories)
             };
         }
 

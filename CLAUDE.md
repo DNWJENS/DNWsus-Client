@@ -52,6 +52,19 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
 - Tab „Ohne Gruppe“: aktive Client-Computerkonten in keiner Gruppe; veraltete (> 90 Tage keine AD-Anmeldung) grau.
   Clients in mehreren Gruppen = Konflikt, werden nicht aktualisiert.
 
+## Update-Klassen und Regeln (ab v2.3.0)
+- Der Agent **klassifiziert** jedes Update (`UpdateClassifier`): Definition / Security / Quality / Feature / Driver / Product / Other.
+- Pro **Gruppe × Klasse** gilt eine Regel (`Services/UpdatePolicy.cs`, Tabelle `policies`, Standard wenn kein Eintrag):
+  **Install** = immediate (Agent installiert selbst beim Scan) / schedule (nur per Zeitplan) / manual (nur per Dashboard-Lauf) / off;
+  **Reboot** = template (Neustart wie Gruppe) / prompt / auto / none (kein erzwungener Neustart).
+- Austauschformat: `AgentResponse.Policy` (Regeln der Gruppe), `UpdateItem.Class`, `InstallRun.Classes`, `InstallReport.InstalledClasses`.
+- Agent (`Worker`): „immediate"-Klassen werden autonom installiert; Läufe installieren nur ihre `Classes`; Neustart je Stapel
+  = sanftestes Verhalten der installierten Klassen (prompt→1, template→Gruppe, auto→3; alle „none" → kein Neustart).
+- Zeitpläne haben eine **Klasse** (leer = alle „schedule"-Klassen der Gruppe); `ScheduleService` legt klassen-spezifische Läufe an.
+- Manuelle Läufe (Gruppe installieren / Soforthilfe) sparen „off"-Klassen aus. Dashboard: **Regel-Editor** je Gruppen-Tab
+  (Klasse × Install/Reboot) + Klassen-Auswahl im Zeitplan. Design-Referenz: `docs/mockups/dashboard-regeln.html`.
+- **Offen (nächster Schritt):** kompletter optischer Umbau der übrigen Tabs (Karten/Badges wie im Mockup), bisher nur der Regel-Editor.
+
 ## Stand / offen
 - Getestet und läuft: GPO-Verteilung (Zielgruppenadressierung nach GRP_Update1-3, selbstheilende Aufgabe
   `/c msiexec /i "\\…\DnwSus-Agent.msi" /qn /norestart` – **ohne** `if not exist`-Guard, sonst keine Upgrades!). Agent scannt

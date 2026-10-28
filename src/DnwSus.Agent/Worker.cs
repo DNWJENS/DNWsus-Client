@@ -37,6 +37,7 @@ namespace DnwSus.Agent
         private string _workError = "";
         private bool _hintRunning;
         private int _failedInstallAttempts;
+        private volatile Dictionary<string, ClassPolicy> _policy = new Dictionary<string, ClassPolicy>();
 
         public void Start()
         {
@@ -135,6 +136,12 @@ namespace DnwSus.Agent
             }
             _nextReport = DateTime.Now + ReportInterval;
 
+            // Aktuelle Regeln je Klasse merken (für autonome „Sofort"-Installation und die Neustart-Entscheidung).
+            var policy = new Dictionary<string, ClassPolicy>(StringComparer.OrdinalIgnoreCase);
+            if (response.Policy != null)
+                foreach (var p in response.Policy) policy[p.Class] = p;
+            _policy = policy;
+
             // Serverumzug hat Vorrang: nur übernehmen, wenn der neue Server erreichbar ist und sein Zertifikat passt.
             if (!string.IsNullOrEmpty(response.MoveToUrl) && !string.IsNullOrEmpty(response.MoveToCertHash)
                 && TryMigrate(response.MoveToUrl, response.MoveToCertHash, report))
@@ -150,13 +157,20 @@ namespace DnwSus.Agent
             if (openRuns.Count > 0)
             {
                 StartWork(() => Install(openRuns, response.Group));
+                return;
             }
-            else
+
+            // „Sofort"-Klassen mit ausstehenden Updates installiert der Agent selbst (ohne Server-Lauf).
+            var immediate = ImmediateClassesWithPending();
+            if (immediate.Count > 0)
             {
-                var lastScan = AgentState.Parse(_state.LastScanAt);
-                if (response.ScanRequested || lastScan == null || DateTime.Now - lastScan.Value > ScanInterval)
-                    StartWork(Scan);
+                StartWork(() => InstallImmediate(immediate, response.Group));
+                return;
             }
+
+            var lastScan = AgentState.Parse(_state.LastScanAt);
+            if (response.ScanRequested || lastScan == null || DateTime.Now - lastScan.Value > ScanInterval)
+                StartWork(Scan);
         }
 
         /// <summary>
@@ -254,15 +268,46 @@ namespace DnwSus.Agent
             }
         }
 
+        /// <summary>Installation aus einem oder mehreren Server-Läufen (je nach Lauf auf bestimmte Klassen beschränkt).</summary>
         private void Install(List<InstallRun> runs, int group)
         {
             var runIds = runs.Select(r => r.Id).ToList();
-            Log.Info("Installation für Lauf " + string.Join(", ", runIds) + " (Gruppe " + group + ") beginnt.");
-            InstallReport report;
+            var classes = ClassesFromRuns(runs);
+            Log.Info("Installation für Lauf " + string.Join(", ", runIds) + " (Gruppe " + group + ", Klassen: " +
+                     (classes == null ? "alle" : string.Join(",", classes)) + ") beginnt.");
+
+            var report = TryInstall(classes);
+            if (report == null) return; // Fehler, wird beim nächsten Abruf erneut versucht
+            report.RunIds = runIds;
+
+            // Neustart-Zeit eines manuellen Soforthilfe-Laufs übersteuert alles andere.
+            DateTime? manualRebootAt = null;
+            foreach (var r in runs)
+            {
+                if (!r.Manual) continue;
+                var at = AgentState.Parse(r.RebootAt);
+                if (at.HasValue && (manualRebootAt == null || at.Value < manualRebootAt.Value)) manualRebootAt = at.Value;
+            }
+
+            FinishInstall(report, manualRebootAt, group);
+        }
+
+        /// <summary>Autonome Installation der „Sofort"-Klassen – ohne Server-Lauf, Neustart nach Regel.</summary>
+        private void InstallImmediate(List<string> classes, int group)
+        {
+            Log.Info("Sofort-Installation (Klassen: " + string.Join(",", classes) + ", Gruppe " + group + ") beginnt.");
+            var report = TryInstall(classes);
+            if (report == null) return;
+            FinishInstall(report, null, group);
+        }
+
+        private InstallReport TryInstall(ICollection<string> classes)
+        {
             try
             {
-                report = WindowsUpdate.InstallAll(text => _activity = text);
+                var report = WindowsUpdate.InstallAll(classes, text => _activity = text);
                 _failedInstallAttempts = 0;
+                return report;
             }
             catch (Exception ex)
             {
@@ -270,26 +315,15 @@ namespace DnwSus.Agent
                 string message = WindowsUpdate.Describe(ex);
                 _workError = "Installation fehlgeschlagen: " + message;
                 Log.Error("Installation fehlgeschlagen (Versuch " + _failedInstallAttempts + ")", ex);
-                if (_failedInstallAttempts < 3) return; // beim nächsten Abruf erneut versuchen
+                if (_failedInstallAttempts < 3) return null; // beim nächsten Abruf erneut versuchen
                 _failedInstallAttempts = 0;
-                report = new InstallReport { Success = false, Message = message };
+                return new InstallReport { Success = false, Message = message };
             }
-            report.RunIds = runIds;
+        }
+
+        private void FinishInstall(InstallReport report, DateTime? manualRebootAt, int group)
+        {
             Log.Info("Installation: " + report.Message + (report.RebootRequired ? ", Neustart erforderlich" : ""));
-
-            // Neustart-Modus bestimmen: ein manueller Lauf mit Reboot-Zeit übersteuert das Gruppen-Verhalten.
-            DateTime? manualRebootAt = null;
-            bool hasGroupRun = false;
-            foreach (var r in runs)
-            {
-                if (r.Manual)
-                {
-                    var at = AgentState.Parse(r.RebootAt);
-                    if (at.HasValue && (manualRebootAt == null || at.Value < manualRebootAt.Value)) manualRebootAt = at.Value;
-                }
-                else hasGroupRun = true;
-            }
-
             lock (_sync)
             {
                 _state.UnreportedInstall = report;
@@ -299,17 +333,14 @@ namespace DnwSus.Agent
                     _state.RebootPendingSince = AgentState.Format(DateTime.Now);
                     if (manualRebootAt.HasValue)
                     {
-                        _state.RebootGroup = 0; // 0 = manueller/direkter Neustart ohne Zustimmungs-Popup
+                        _state.RebootGroup = 0; // 0 = fester Zeitpunkt ohne Zustimmungs-Popup
                         _state.RebootScheduledAt = AgentState.Format(manualRebootAt.Value);
-                    }
-                    else if (hasGroupRun)
-                    {
-                        _state.RebootGroup = group;
                     }
                     else
                     {
-                        // nur manuelle Läufe ohne Reboot-Zeit → kein erzwungener Neustart, nur als „ausstehend“ sichtbar
-                        _state.RebootPendingSince = "";
+                        int effective = EffectiveRebootGroup(report.InstalledClasses, group);
+                        if (effective < 0) _state.RebootPendingSince = ""; // alle installierten Klassen auf „kein Neustart"
+                        else _state.RebootGroup = effective;
                     }
                 }
                 _state.Save();
@@ -319,6 +350,64 @@ namespace DnwSus.Agent
                 : "Installation fehlgeschlagen: " + report.Message;
 
             Scan(); // Stand nach der Installation melden
+        }
+
+        /// <summary>Klassen, die die Läufe installieren sollen. Hat ein Lauf keine Klassen angegeben → alle (null).</summary>
+        private static List<string> ClassesFromRuns(List<InstallRun> runs)
+        {
+            var set = new List<string>();
+            foreach (var r in runs)
+            {
+                if (string.IsNullOrEmpty(r.Classes)) return null; // ein Lauf ohne Einschränkung → alles
+                foreach (var c in r.Classes.Split(','))
+                {
+                    var cls = c.Trim();
+                    if (cls.Length > 0 && !set.Contains(cls)) set.Add(cls);
+                }
+            }
+            return set.Count > 0 ? set : null;
+        }
+
+        /// <summary>Klassen mit Regel „Sofort", für die laut letztem Scan Updates anstehen.</summary>
+        private List<string> ImmediateClassesWithPending()
+        {
+            var result = new List<string>();
+            lock (_sync)
+            {
+                if (_state.LastScan == null) return result;
+                foreach (var kv in _policy)
+                {
+                    if (kv.Value == null || kv.Value.Install != "immediate") continue;
+                    if (_state.LastScan.Exists(u => string.Equals(u.Class, kv.Key, StringComparison.OrdinalIgnoreCase)))
+                        result.Add(kv.Key);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Effektives Neustart-Verhalten (als Gruppen-Nr. 1..3) für einen Stapel installierter Klassen:
+        /// pro Klasse prompt→1, auto→3, template→Gruppe, none→ignoriert. Es gewinnt das sanfteste (kleinste);
+        /// −1, wenn alle installierten Klassen „kein Neustart" sind.
+        /// </summary>
+        private int EffectiveRebootGroup(List<string> installedClasses, int group)
+        {
+            int best = int.MaxValue;
+            int template = group >= 1 && group <= 3 ? group : 1;
+            foreach (var cls in installedClasses)
+            {
+                string mode = _policy.TryGetValue(cls, out var p) && p != null && p.Reboot != null ? p.Reboot : "template";
+                int g;
+                switch (mode)
+                {
+                    case "none": continue;
+                    case "prompt": g = 1; break;
+                    case "auto": g = 3; break;
+                    default: g = template; break; // template
+                }
+                if (g < best) best = g;
+            }
+            return best == int.MaxValue ? -1 : best;
         }
 
         // ------------------------------------------------------------------ Neustart-Ablauf

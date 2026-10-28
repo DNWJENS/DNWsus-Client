@@ -3,6 +3,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text.Json;
 using DnwSus.Server.Api;
+using DnwSus.Server.Services;
 using Microsoft.Data.Sqlite;
 
 namespace DnwSus.Server.Data;
@@ -54,11 +55,17 @@ CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     time TEXT NOT NULL, client TEXT COLLATE NOCASE, text TEXT, is_error INTEGER DEFAULT 0);
 CREATE INDEX IF NOT EXISTS ix_events_client ON events(client, id);
-CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);");
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS policies (
+    group_no INTEGER NOT NULL, class TEXT NOT NULL,
+    install TEXT NOT NULL, reboot TEXT NOT NULL,
+    PRIMARY KEY (group_no, class));");
 
         // Migration für bestehende Datenbanken (CREATE TABLE IF NOT EXISTS ergänzt keine Spalten).
         AddColumnIfMissing("runs", "is_manual", "INTEGER DEFAULT 0");
         AddColumnIfMissing("runs", "reboot_at", "TEXT");
+        AddColumnIfMissing("runs", "classes", "TEXT");
+        AddColumnIfMissing("schedules", "class", "TEXT");
     }
 
     private void AddColumnIfMissing(string table, string column, string definition)
@@ -189,15 +196,15 @@ WHERE name=$name;",
     // ------------------------------------------------------------------ Läufe
 
     public long CreateRun(int group, string? client, DateTime startAt, string createdBy, string source,
-        bool isManual = false, DateTime? rebootAt = null)
+        bool isManual = false, DateTime? rebootAt = null, string? classes = null)
     {
         lock (_lock)
         {
-            using var cmd = Command(@"INSERT INTO runs (group_no, client, start_at, created_at, created_by, source, is_manual, reboot_at)
-                                      VALUES ($g, $c, $start, $now, $by, $src, $man, $reb); SELECT last_insert_rowid();",
+            using var cmd = Command(@"INSERT INTO runs (group_no, client, start_at, created_at, created_by, source, is_manual, reboot_at, classes)
+                                      VALUES ($g, $c, $start, $now, $by, $src, $man, $reb, $cls); SELECT last_insert_rowid();",
                 ("$g", group), ("$c", client), ("$start", Format(startAt)), ("$now", Format(DateTime.Now)),
                 ("$by", createdBy), ("$src", source), ("$man", isManual ? 1 : 0),
-                ("$reb", rebootAt.HasValue ? Format(rebootAt.Value) : null));
+                ("$reb", rebootAt.HasValue ? Format(rebootAt.Value) : null), ("$cls", classes ?? ""));
             return Convert.ToInt64(cmd.ExecuteScalar());
         }
     }
@@ -216,7 +223,7 @@ WHERE name=$name;",
         lock (_lock)
         {
             using var cmd = Command(@"
-SELECT r.id, r.is_manual, r.reboot_at FROM runs r
+SELECT r.id, r.is_manual, r.reboot_at, r.classes FROM runs r
 WHERE r.cancelled=0 AND r.start_at <= $now
   AND ( (r.is_manual=0 AND r.group_no=$g AND (r.client IS NULL OR r.client=$c))
      OR (r.is_manual=1 AND r.client=$c) )
@@ -229,7 +236,8 @@ ORDER BY r.id;", ("$g", group), ("$now", Format(now)), ("$c", client));
                 {
                     Id = reader.GetInt64(0),
                     IsManual = Convert.ToInt64(reader.GetValue(1)) == 1,
-                    RebootAt = ParseDate(reader.IsDBNull(2) ? null : reader.GetValue(2))
+                    RebootAt = ParseDate(reader.IsDBNull(2) ? null : reader.GetValue(2)),
+                    Classes = reader.IsDBNull(3) ? "" : reader.GetString(3)
                 });
             return runs;
         }
@@ -283,7 +291,8 @@ ORDER BY r.id DESC LIMIT $limit;", ("$g", group), ("$limit", limit));
                     Cancelled = Convert.ToInt64(reader["cancelled"]) == 1,
                     DoneCount = Convert.ToInt32(reader["done"]),
                     IsManual = Convert.ToInt64(reader["is_manual"]) == 1,
-                    RebootAt = ParseDate(reader["reboot_at"])
+                    RebootAt = ParseDate(reader["reboot_at"]),
+                    Classes = reader["classes"] as string ?? ""
                 });
             }
             return runs;
@@ -312,7 +321,8 @@ ORDER BY r.id DESC LIMIT $limit;", ("$g", group), ("$limit", limit));
                         .Select(d => (DayOfWeek)int.Parse(d, CultureInfo.InvariantCulture)).ToList(),
                     OffsetDays = reader.IsDBNull(reader.GetOrdinal("offset_days")) ? 0 : reader.GetInt32(reader.GetOrdinal("offset_days")),
                     Time = TimeSpan.Parse(reader.GetString(reader.GetOrdinal("time")), CultureInfo.InvariantCulture),
-                    LastFired = ParseDate(reader["last_fired"]) ?? DateTime.Now
+                    LastFired = ParseDate(reader["last_fired"]) ?? DateTime.Now,
+                    Class = reader["class"] as string
                 });
             }
             return list;
@@ -323,12 +333,13 @@ ORDER BY r.id DESC LIMIT $limit;", ("$g", group), ("$limit", limit));
     {
         lock (_lock)
         {
-            Execute(@"INSERT INTO schedules (group_no, kind, days, offset_days, time, last_fired)
-                      VALUES ($g, $kind, $days, $offset, $time, $fired);",
+            Execute(@"INSERT INTO schedules (group_no, kind, days, offset_days, time, last_fired, class)
+                      VALUES ($g, $kind, $days, $offset, $time, $fired, $cls);",
                 ("$g", schedule.GroupNumber), ("$kind", schedule.Kind.ToString()),
                 ("$days", string.Join(",", schedule.Days.Select(d => ((int)d).ToString(CultureInfo.InvariantCulture)))),
                 ("$offset", schedule.OffsetDays), ("$time", schedule.Time.ToString(@"hh\:mm", CultureInfo.InvariantCulture)),
-                ("$fired", Format(DateTime.Now)));
+                ("$fired", Format(DateTime.Now)),
+                ("$cls", string.IsNullOrEmpty(schedule.Class) ? null : schedule.Class));
         }
     }
 
@@ -358,6 +369,35 @@ ORDER BY r.id DESC LIMIT $limit;", ("$g", group), ("$limit", limit));
         lock (_lock)
             Execute("INSERT INTO settings (key, value) VALUES ($k, $v) ON CONFLICT(key) DO UPDATE SET value=$v;",
                 ("$k", key), ("$v", value));
+    }
+
+    // ------------------------------------------------------------------ Regeln pro Gruppe × Klasse
+
+    /// <summary>Effektive Regeln einer Gruppe: Standard je Klasse, überlagert von gespeicherten Abweichungen.</summary>
+    public Dictionary<string, UpdatePolicy.Rule> GetPolicies(int group)
+    {
+        var result = new Dictionary<string, UpdatePolicy.Rule>();
+        foreach (var cls in UpdatePolicy.Classes) result[cls] = UpdatePolicy.Default(cls);
+        lock (_lock)
+        {
+            using var cmd = Command("SELECT class, install, reboot FROM policies WHERE group_no=$g;", ("$g", group));
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var cls = reader.GetString(0);
+                if (result.ContainsKey(cls))
+                    result[cls] = new UpdatePolicy.Rule(reader.GetString(1), reader.GetString(2));
+            }
+        }
+        return result;
+    }
+
+    public void SetPolicy(int group, string cls, string install, string reboot)
+    {
+        lock (_lock)
+            Execute(@"INSERT INTO policies (group_no, class, install, reboot) VALUES ($g, $c, $i, $r)
+                      ON CONFLICT(group_no, class) DO UPDATE SET install=$i, reboot=$r;",
+                ("$g", group), ("$c", cls), ("$i", install), ("$r", reboot));
     }
 
     // ------------------------------------------------------------------ Ereignisse

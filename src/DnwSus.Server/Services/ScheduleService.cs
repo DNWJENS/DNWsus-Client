@@ -27,11 +27,15 @@ public sealed class ScheduleService : BackgroundService
                     var due = schedule.NextAfter(schedule.LastFired);
                     if (due > now) continue;
 
-                    // Verpasste Termine (Server war aus) lösen nur einen Lauf aus.
-                    _db.CreateRun(schedule.GroupNumber, null, due, "Zeitplan", "Zeitplan: " + schedule.Description);
+                    // Welche Klassen installiert dieser Zeitplan? Eine feste Klasse, sonst alle „Nach Zeitplan"-Klassen der Gruppe.
+                    string classes = ClassesFor(schedule);
                     _db.SetScheduleFired(schedule.Id, now);
-                    _logger.LogInformation("Zeitplan {Id} ({Description}) hat einen Lauf für Gruppe {Group} angelegt",
-                        schedule.Id, schedule.Description, schedule.GroupNumber);
+                    if (classes.Length == 0) continue; // nichts auf „Nach Zeitplan" → kein Lauf
+
+                    // Verpasste Termine (Server war aus) lösen nur einen Lauf aus.
+                    _db.CreateRun(schedule.GroupNumber, null, due, "Zeitplan", "Zeitplan: " + schedule.Description, classes: classes);
+                    _logger.LogInformation("Zeitplan {Id} ({Description}) hat einen Lauf für Gruppe {Group} angelegt (Klassen: {Classes})",
+                        schedule.Id, schedule.Description, schedule.GroupNumber, classes);
                 }
             }
             catch (Exception ex)
@@ -40,5 +44,15 @@ public sealed class ScheduleService : BackgroundService
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
+    }
+
+    /// <summary>Klassen, die dieser Zeitplan installiert: die feste Klasse (falls gesetzt), sonst alle „Nach Zeitplan"-Klassen der Gruppe.</summary>
+    private string ClassesFor(Schedule schedule)
+    {
+        if (!string.IsNullOrEmpty(schedule.Class)) return schedule.Class!;
+        var scheduled = _db.GetPolicies(schedule.GroupNumber)
+            .Where(p => p.Value.Install == UpdatePolicy.Schedule)
+            .Select(p => p.Key);
+        return string.Join(",", scheduled);
     }
 }

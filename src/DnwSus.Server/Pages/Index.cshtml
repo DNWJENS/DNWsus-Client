@@ -61,11 +61,53 @@
 
 @if (groupTab)
 {
+    var installOpts = new[] { ("immediate", "Sofort"), ("schedule", "Nach Zeitplan"), ("manual", "Manuell"), ("off", "Aus") };
+    var rebootOpts = new[] { ("template", "Wie Gruppe (Vorlage)"), ("prompt", "Verschiebbar per Popup"), ("auto", "Automatisch nach Hinweis"), ("none", "Kein erzwungener Neustart") };
+
+    <section class="panel">
+        <h3>Regeln – was wann installiert wird und wie der Neustart läuft</h3>
+        <p class="muted">Pro Update-Klasse: <b>Installation</b> (Sofort = der Agent installiert selbst · Nach Zeitplan · Manuell · Aus) und
+            <b>Neustart</b>. „Wie Gruppe" ist die Neustart-Vorlage dieser Gruppe (siehe unten), pro Klasse überschreibbar.
+            Updates ohne Neustart laufen ohnehin ohne Reboot durch.</p>
+        <form method="post" asp-page-handler="Policy">
+            <input type="hidden" name="group" value="@Model.GroupNumber" />
+            <table class="grid matrix">
+                <thead><tr><th>Klasse</th><th>Installation</th><th>Neustart (falls nötig)</th></tr></thead>
+                <tbody>
+                    @foreach (var cls in IndexModel.PolicyClasses)
+                    {
+                        var rule = Model.Policies.TryGetValue(cls, out var r) ? r : new UpdatePolicy.Rule("manual", "template");
+                        <tr>
+                            <td>@IndexModel.ClassLabel(cls)<input type="hidden" name="classes" value="@cls" /></td>
+                            <td>
+                                <select name="install">
+                                    @foreach (var (v, l) in installOpts)
+                                    {
+                                        <option value="@v" selected="@(rule.Install == v)">@l</option>
+                                    }
+                                </select>
+                            </td>
+                            <td>
+                                <select name="reboot">
+                                    @foreach (var (v, l) in rebootOpts)
+                                    {
+                                        <option value="@v" selected="@(rule.Reboot == v)">@l</option>
+                                    }
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p style="margin-top:12px"><button class="button" type="submit">Regeln speichern</button></p>
+        </form>
+    </section>
+
     <section class="panels">
         <div class="panel">
-            <h3>Verhalten</h3>
+            <h3>Neustart-Vorlage der Gruppe</h3>
             <p>@IndexModel.Behaviour[Model.GroupNumber]</p>
-            <p class="muted">Ist niemand angemeldet, startet der PC sofort neu. Offline-Clients installieren, sobald sie sich wieder melden.</p>
+            <p class="muted">Gilt für Klassen auf „Wie Gruppe". Ist niemand angemeldet, startet der PC sofort neu. Offline-Clients installieren, sobald sie sich wieder melden.</p>
         </div>
 
         <div class="panel">
@@ -81,6 +123,7 @@
                         <form method="post" asp-page-handler="DeleteSchedule" class="inline" onsubmit="return confirm('Zeitplan löschen?');">
                             <input type="hidden" name="group" value="@Model.GroupNumber" />
                             <input type="hidden" name="id" value="@sch.Id" />
+                            <b>@(string.IsNullOrEmpty(sch.Class) ? "Alle „Nach Zeitplan\"-Klassen" : IndexModel.ClassLabel(sch.Class))</b>:
                             @sch.Description <span class="muted">– nächster: @sch.NextAfter(DateTime.Now).ToString("dd.MM. HH:mm")</span>
                             <button class="link" type="submit">löschen</button>
                         </form>
@@ -89,6 +132,13 @@
             </ul>
             <form method="post" asp-page-handler="AddSchedule" class="schedule-form">
                 <input type="hidden" name="group" value="@Model.GroupNumber" />
+                <select name="cls" title="Welche Klasse soll dieser Zeitplan installieren?">
+                    <option value="">Alle „Nach Zeitplan"-Klassen</option>
+                    @foreach (var cls in IndexModel.PolicyClasses)
+                    {
+                        <option value="@cls">@IndexModel.ClassLabel(cls)</option>
+                    }
+                </select>
                 <select name="kind" id="scheduleKind">
                     <option value="woechentlich">Wöchentlich</option>
                     <option value="patchday">Nach Patchday</option>

@@ -41,6 +41,12 @@ public sealed class IndexModel : PageModel
     public List<Run> Runs { get; private set; } = new();
     public List<Schedule> Schedules { get; private set; } = new();
 
+    /// <summary>Regeln der aktuellen Gruppe (Klasse → Install/Reboot), für den Regel-Editor.</summary>
+    public Dictionary<string, UpdatePolicy.Rule> Policies { get; private set; } = new();
+
+    public static string[] PolicyClasses => UpdatePolicy.Classes;
+    public static string ClassLabel(string cls) => UpdatePolicy.Label(cls);
+
     [TempData] public string? Message { get; set; }
 
     /// <summary>Aktuelle Agent-Version (= Server-Version), nur zur Information im Dashboard.</summary>
@@ -79,6 +85,7 @@ public sealed class IndexModel : PageModel
                 clients = Snapshot.Clients.Where(c => c.Groups.Contains(GroupNumber));
                 Runs = _db.GetRuns(GroupNumber, activeOnly: false, limit: 20);
                 Schedules = _db.GetSchedules(GroupNumber);
+                Policies = _db.GetPolicies(GroupNumber);
                 break;
             case "ohne":
                 clients = Snapshot.Clients.Where(c => c.Groups.Count == 0);
@@ -111,9 +118,11 @@ public sealed class IndexModel : PageModel
         string by = User.Identity?.Name ?? "";
         string when = start <= DateTime.Now ? "sofort" : "ab " + start.ToString("dd.MM.yyyy HH:mm");
 
+        string classes = NonOffClasses(group); // „Aus"-Klassen werden auch manuell nicht installiert
+
         if (whole)
         {
-            _db.CreateRun(group, null, start, by, "manuell");
+            _db.CreateRun(group, null, start, by, "manuell", classes: classes);
             Message = $"Lauf für die ganze Gruppe angelegt ({when}). Die Clients holen ihn bei ihrer nächsten Meldung ab (spätestens nach 5 Minuten).";
         }
         else
@@ -124,7 +133,7 @@ public sealed class IndexModel : PageModel
                 Message = "Keine Clients ausgewählt.";
                 return RedirectToPage(new { tab = "grp" + group });
             }
-            foreach (var name in names) _db.CreateRun(group, name, start, by, "manuell");
+            foreach (var name in names) _db.CreateRun(group, name, start, by, "manuell", classes: classes);
             Message = $"Lauf für {names.Count} Client(s) angelegt ({when}).";
         }
         return RedirectToPage(new { tab = "grp" + group });
@@ -139,6 +148,29 @@ public sealed class IndexModel : PageModel
             : $"Neuer Scan für {names.Count} Client(s) angefordert (bei der nächsten Meldung, spätestens nach 5 Minuten).";
         return RedirectToPage(new { tab });
     }
+
+    /// <summary>Regeln einer Gruppe speichern: je Klasse Install-Modus und Reboot-Verhalten (parallele Arrays aus dem Formular).</summary>
+    public IActionResult OnPostPolicy(int group, string[]? classes, string[]? install, string[]? reboot)
+    {
+        if (group is < 1 or > 3) return BadRequest();
+        classes ??= Array.Empty<string>();
+        install ??= Array.Empty<string>();
+        reboot ??= Array.Empty<string>();
+        int n = Math.Min(classes.Length, Math.Min(install.Length, reboot.Length));
+        int saved = 0;
+        for (int i = 0; i < n; i++)
+        {
+            if (!UpdatePolicy.IsValidInstall(install[i]) || !UpdatePolicy.IsValidReboot(reboot[i])) continue;
+            _db.SetPolicy(group, classes[i], install[i], reboot[i]);
+            saved++;
+        }
+        Message = $"Regeln gespeichert ({saved} Klassen). Die Agenten übernehmen sie bei ihrer nächsten Meldung.";
+        return RedirectToPage(new { tab = "grp" + group });
+    }
+
+    /// <summary>Kommagetrennte Klassen der Gruppe, die nicht auf „Aus" stehen (für manuelle Läufe).</summary>
+    private string NonOffClasses(int group) =>
+        string.Join(",", _db.GetPolicies(group).Where(p => p.Value.Install != UpdatePolicy.Off).Select(p => p.Key));
 
     public IActionResult OnPostCancelRun(int group, long id)
     {
@@ -172,7 +204,9 @@ public sealed class IndexModel : PageModel
             if (_db.GetStatus(name)?.LastContact == null) { skipped++; continue; }
             var client = snapshot.Clients.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             int group = client is { Groups.Count: 1 } ? client.Groups[0] : 0;
-            _db.CreateRun(group, name, start, by, "Soforthilfe", isManual: true, rebootAt: reboot);
+            // In einer Gruppe „Aus"-Klassen aussparen; gruppenlose Clients (manuell betankt) bekommen alles.
+            string classes = group > 0 ? NonOffClasses(group) : "";
+            _db.CreateRun(group, name, start, by, "Soforthilfe", isManual: true, rebootAt: reboot, classes: classes);
             created++;
         }
 
@@ -187,7 +221,7 @@ public sealed class IndexModel : PageModel
     public static bool RebootNeeded(ClientStatus? st) =>
         st != null && (st.RebootPendingSince != null || st.PendingUpdates.Any(u => u.RebootRequired));
 
-    public IActionResult OnPostAddSchedule(int group, string kind, int[]? days, int offset, string? time)
+    public IActionResult OnPostAddSchedule(int group, string kind, int[]? days, int offset, string? time, string? cls)
     {
         if (group is < 1 or > 3) return BadRequest();
         if (!TimeSpan.TryParseExact(time ?? "", @"hh\:mm", CultureInfo.InvariantCulture, out var at))
@@ -196,7 +230,12 @@ public sealed class IndexModel : PageModel
             return RedirectToPage(new { tab = "grp" + group });
         }
 
-        var schedule = new Schedule { GroupNumber = group, Time = at };
+        var schedule = new Schedule
+        {
+            GroupNumber = group,
+            Time = at,
+            Class = UpdatePolicy.Classes.Contains(cls) ? cls : null // leer = alle „Nach Zeitplan"-Klassen
+        };
         if (kind == "patchday")
         {
             schedule.Kind = ScheduleKind.Patchday;

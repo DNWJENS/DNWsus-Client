@@ -60,9 +60,16 @@ public static class AgentApi
         {
             Id = r.Id,
             Manual = r.IsManual,
-            RebootAt = r.RebootAt.HasValue ? r.RebootAt.Value.ToString("yyyy-MM-ddTHH:mm:ss") : ""
+            RebootAt = r.RebootAt.HasValue ? r.RebootAt.Value.ToString("yyyy-MM-ddTHH:mm:ss") : "",
+            Classes = r.Classes
         }).ToList();
         response.InstallRunIds = open.Select(r => r.Id).ToList();
+
+        // Regeln pro Klasse für die Gruppe mitgeben (nur bei gültiger Gruppe; der Agent handelt danach selbstständig).
+        if (group is >= 1 and <= 3)
+            response.Policy = db.GetPolicies(group)
+                .Select(p => new ClassPolicy { Class = p.Key, Install = p.Value.Install, Reboot = p.Value.Reboot })
+                .ToList();
 
         return Results.Json(response);
     }
