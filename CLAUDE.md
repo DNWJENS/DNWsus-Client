@@ -76,6 +76,8 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   in der Hausschrift **Ubuntu**; Schrift (Ubuntu-Regular/Bold, Ubuntu Font License) und Logo sind als Ressourcen
   eingebettet (`src/DnwSus.Hinweis/Resources`, per `PrivateFontCollection` geladen, Rückfall Segoe UI), weil Ubuntu
   auf Clients nicht installiert ist.
-- Offen (zurückgestellt): **„Agent veraltet”-Markierung entschärfen** (Agent/Server teilen die Version →
-  jedes Dashboard-Update flaggt alle Agenten als „alt”; separate Agent-Mindestversion o. Ä.).
+- v2.2.2: **Agent-Markierung entschärft.** Nur noch Agenten **unterhalb** `IndexModel.MinCompatibleAgentVersion`
+  (derzeit 2.0.0) werden als „inkompatibel” markiert – entkoppelt von der Server-/Dashboard-Version, damit ein reines
+  Server-Update nicht mehr alle Agenten fälschlich als „alt” flaggt. Die Mindestversion wird nur bei einer echten,
+  nicht abwärtskompatiblen Änderung am Austauschformat erhöht.
 - **Code-Signatur gestrichen** – Verteilung läuft ausschließlich per GPO, eine Signatur ist dafür nicht nötig.

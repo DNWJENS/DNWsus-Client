@@ -184,7 +184,7 @@
                 }
                 <th>Letzter Benutzer</th>
                 <th>Letzter Serverkontakt</th>
-                <th title="Agent-Version; abweichend von @IndexModel.CurrentAgentVersion = veraltet">Agent</th>
+                <th title="Agent-Version; älter als @IndexModel.MinCompatibleAgentVersion.ToString(3) = inkompatibel">Agent</th>
                 @if (!ungrouped) { <th>Fehler</th> }
                 <th>Betriebssystem</th>
                 <th title="lastLogonTimestamp aus dem AD, wird nur etwa alle 14 Tage aktualisiert">AD-Anmeldung</th>
@@ -218,7 +218,7 @@
                     }
                     <td>@(string.IsNullOrEmpty(st?.UserText) ? "—" : st.UserText)</td>
                     <td class="@(IndexModel.ContactIsOld(st) ? "warn" : "")" data-sort="@(st?.LastContact?.ToString("yyyyMMddHHmmss") ?? "0")" title="@IndexModel.FormatDate(st?.LastContact)">@(st?.LastContact == null ? "nie" : IndexModel.FormatAge(st.LastContact))</td>
-                    <td class="@(Model.IsAgentOutdated(st) ? "warn" : "")" data-sort="@(st?.AgentVersion ?? "")" title="@(Model.IsAgentOutdated(st) ? "veraltet – aktuell ist " + IndexModel.CurrentAgentVersion : "")">@(string.IsNullOrEmpty(st?.AgentVersion) ? "—" : st.AgentVersion)@if (Model.IsAgentOutdated(st)) { <span class="tag outdated">alt</span> }</td>
+                    <td class="@(Model.IsAgentIncompatible(st) ? "warn" : "")" data-sort="@(st?.AgentVersion ?? "")" title="@(Model.IsAgentIncompatible(st) ? "inkompatibel – mindestens " + IndexModel.MinCompatibleAgentVersion.ToString(3) + " nötig" : "")">@(string.IsNullOrEmpty(st?.AgentVersion) ? "—" : st.AgentVersion)@if (Model.IsAgentIncompatible(st)) { <span class="tag outdated">inkompatibel</span> }</td>
                     @if (!ungrouped)
                     {
                         <td class="error" title="@st?.LastError">@(string.IsNullOrEmpty(st?.LastError) ? "" : (st.LastError.Length > 40 ? st.LastError[..40] + "…" : st.LastError))</td>

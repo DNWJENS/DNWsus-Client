@@ -43,13 +43,20 @@ public sealed class IndexModel : PageModel
 
     [TempData] public string? Message { get; set; }
 
-    /// <summary>Aktuelle Agent-Version (= Server-Version). Agenten mit abweichender Version gelten als veraltet.</summary>
+    /// <summary>Aktuelle Agent-Version (= Server-Version), nur zur Information im Dashboard.</summary>
     public static string CurrentAgentVersion { get; } =
         typeof(IndexModel).Assembly.GetName().Version?.ToString(3) ?? "";
 
-    public bool IsAgentOutdated(ClientStatus? st) =>
-        st?.LastContact != null && !string.IsNullOrEmpty(st.AgentVersion) &&
-        !string.Equals(st.AgentVersion, CurrentAgentVersion, StringComparison.Ordinal);
+    /// <summary>
+    /// Kleinste Agent-Version, die noch problemlos mit diesem Server zusammenarbeitet. Nur ältere Agenten werden als
+    /// „inkompatibel" markiert – bewusst NICHT an die Server-/Dashboard-Version gekoppelt, damit ein reines Server-Update
+    /// nicht alle Agenten fälschlich als „alt" flaggt. Nur erhöhen, wenn eine echte, nicht abwärtskompatible Änderung
+    /// am Austauschformat (AgentContracts/Contracts) gemacht wird.
+    /// </summary>
+    public static readonly Version MinCompatibleAgentVersion = new(2, 0, 0);
+
+    public bool IsAgentIncompatible(ClientStatus? st) =>
+        st?.LastContact != null && Version.TryParse(st.AgentVersion, out var v) && v < MinCompatibleAgentVersion;
 
     public int Ungrouped => Snapshot.Clients.Count(c => c.Groups.Count == 0);
     public int Conflicts => Snapshot.Clients.Count(c => c.Groups.Count > 1);
