@@ -6,7 +6,7 @@
 |---|---|
 | **Server** | Windows Server 2019 oder neuer, Mitglied der Domäne. Keine weiteren Komponenten nötig (.NET ist enthalten). |
 | **Clients** | Windows 10/11 (Domänenmitglied), zum Testen auch Windows Server ab 2016. Benötigt .NET Framework 4.6.2 oder neuer – dort ab Werk enthalten. |
-| **Netzwerk** | Clients erreichen den Server auf **TCP 13162** (im Büro oder per VPN). Die Firewall-Regel auf dem Server legt die MSI an (Profil Domäne). |
+| **Netzwerk** | Clients erreichen den Server auf **TCP 13162** (im Büro oder per VPN) – diese Firewall-Regel legt die Server-MSI an. Für die automatische Agent-Freigabe zusätzlich **SMB (TCP 445)** zum Server; diese Freigabe (Datei- und Druckerfreigabe) nimmt der Administrator selbst vor. |
 | **AD** | Gruppen `GRP_Update1`, `GRP_Update2`, `GRP_Update3` mit den Computerkonten der Clients (verschachtelte Gruppen sind erlaubt). |
 
 ## 2. Server installieren
@@ -31,16 +31,23 @@ die Agenten müssen nicht neu verteilt werden.
 
 ## 3. Agent verteilen
 
-1. Im Dashboard die Seite **Agent** öffnen. Dort steht der lokale Pfad der fertigen MSI auf dem Server
-   (`C:\ProgramData\DNWsus\Server\msi\DnwSus-Agent-….msi`). Von dort im Explorer kopieren – das vermeidet die
-   Browser-Warnungen beim Download (die MSI ist noch nicht code-signiert). Der Dateiname darf beim Kopieren
-   z. B. in `DnwSus-Agent.msi` geändert werden. Die MSI enthält Adresse und Zertifikats-Fingerabdruck **dieses** Servers.
-2. MSI auf eine Freigabe legen, die **Domänencomputer** lesen dürfen, z. B. `\\server\Software$\DNWsus\DnwSus-Agent.msi`.
-3. GPO: *Computerkonfiguration → Richtlinien → Softwareeinstellungen → Softwareinstallation → Neu → Paket*
-   → UNC-Pfad der MSI → **Zugewiesen**. GPO mit der OU der Clients verknüpfen.
-4. Die Installation erfolgt beim nächsten Neustart des Clients. Danach meldet sich der Agent innerhalb von 5 Minuten im Dashboard.
+Der Server legt beim Start **selbst** eine öffentlich lesbare Freigabe an und hält dort immer die aktuelle Agent-MSI
+bereit. Pro Domäne ist damit nur **eine** GPO nötig, die dauerhaft auf denselben Pfad zeigt – ein manuelles Kopieren
+nach jedem Update entfällt.
 
-Alternativ: MSI auf einem Client als Administrator per Doppelklick installieren.
+1. Im Dashboard die Seite **Agent** öffnen. Dort steht der fertige Freigabe-Pfad, z. B. `\\server\DNWsus\DnwSus-Agent.msi`
+   (Ordner `C:\ProgramData\DNWsus\Share`, Freigabe `DNWsus`: Jeder darf lesen, inkl. der Computerkonten – nötig, weil die
+   GPO-Installation als Computerkonto läuft). Voraussetzung: SMB (TCP 445) zum Server ist freigegeben (Firewall durch den Admin).
+2. GPO: *Computerkonfiguration → Richtlinien → Softwareeinstellungen → Softwareinstallation → Neu → Paket*
+   → den Freigabe-Pfad eintragen → **Zugewiesen**. GPO mit der OU der Clients verknüpfen (Zuweisung der Update-Gruppen
+   über Zielgruppenadressierung).
+3. Die Installation erfolgt beim nächsten Neustart des Clients. Danach meldet sich der Agent innerhalb von 5 Minuten im Dashboard.
+
+Alternativ: MSI auf der Agent-Seite herunterladen (für manuelle Installation) und auf einem Client als Administrator per
+Doppelklick ausführen. Beim Download warnen Browser, weil die MSI noch nicht code-signiert ist.
+
+Soll die MSI nicht in die Server-eigene Freigabe, sondern an einen **anderen** Ort (zentraler Dateiserver), lässt sich auf
+der Agent-Seite unter „Abweichender Zielpfad“ ein eigener Pfad hinterlegen (hat dann Vorrang).
 
 Zum Testen lässt sich der Agent auch auf Windows Server installieren. Server erscheinen im Dashboard nur, wenn sie
 Mitglied einer Update-Gruppe sind (markiert mit „Server“). Achtung: Ist niemand angemeldet, startet auch ein Server
@@ -48,8 +55,13 @@ nach der Installation sofort neu.
 
 Ein Agent ohne Update-Gruppe meldet nur seinen Stand (ausstehende Updates, Uptime, IP, Benutzer) und installiert nichts.
 
-**Update des Agenten:** neue Agent-MSI im Dashboard herunterladen, in der GPO das Paket ersetzen
-(bzw. als Aktualisierung des alten Pakets hinzufügen). Die MSI ersetzt vorhandene Versionen selbst.
+**Update des Agenten:** nichts weiter nötig – der Server tauscht die MSI in der Freigabe bei jedem Server-Update selbst aus,
+die GPO zeigt dauerhaft auf denselben Pfad. Eine gleichversionierte Neuinstallation ist ein No-Op (der Dienst läuft durch).
+
+**Serverumzug** (Agenten auf einen neuen DNWsus-Server, ohne neue MSI zu verteilen): Am **neuen** Server im Dashboard
+(Seite „Agent“) Adresse und Zertifikats-Fingerabdruck ablesen und am **alten** Server unter „Serverumzug“ eintragen.
+Die Agenten stellen sich bei ihrer nächsten Meldung selbst um, sobald der neue Server erreichbar ist und sein Zertifikat
+passt; offline Clients ziehen nach. Den Umzug erst beenden, wenn alle Agenten auf dem neuen Server gemeldet sind.
 
 **Deinstallation:** über die GPO („Software entfernen“) oder Programme und Features. Dienst, Programm,
 Registry-Einträge und `C:\ProgramData\DNWsus\Agent` werden entfernt.
@@ -71,7 +83,8 @@ Clients, die offline sind, holen offene Läufe nach, sobald sie sich wieder meld
 ## 5. Erster Test (Checkliste)
 
 1. Server-MSI installieren, Dashboard öffnen → Tabs zeigen die Clients aus den drei Gruppen bzw. „Ohne Gruppe“.
-2. Agent-MSI herunterladen und auf **einem** Test-Client manuell installieren.
+   Auf der Agent-Seite steht der Freigabe-Pfad; im Explorer sollte `\\server\DNWsus\DnwSus-Agent.msi` erreichbar sein.
+2. Agent per GPO (Freigabe-Pfad) verteilen oder zum Schnelltest die MSI auf **einem** Client manuell installieren.
 3. Nach ≤ 5 Min.: Client zeigt im Dashboard Status, IP, Uptime, Benutzer; nach dem ersten Scan die Anzahl ausstehender Updates
    (Detailseite per Klick auf den Namen).
 4. Test-Client in z. B. `GRP_Update3` aufnehmen (AD-Stand im Dashboard ggf. mit „AD neu laden“ aktualisieren),
