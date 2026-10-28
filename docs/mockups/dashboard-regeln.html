@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DNWsus – Regel-Editor-Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1520; --surface:#161e2c; --surface-light:#1b2436; --border:#2a3446;
+  --text:#e4e9f2; --muted:#8b98af; --faint:#566079;
+  --accent:#00aff0; --accent-strong:#33c2f7; --warn:#e8b93f; --error:#ef5b5b; --success:#3ecf7e;
+  --header-bg:#ffffff; --header-border:#e3e8f2; --header-text:#1c2a44; --header-dim:#5a6784;
+  --font:"Ubuntu","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font:14px var(--font);}
+h2{margin:4px 0 6px;font-weight:500;font-size:20px;}
+h3{margin:0;font-size:15px;font-weight:500;}
+.muted{color:var(--muted);} .warn{color:var(--warn);} .error{color:var(--error);} .success{color:var(--success);}
+
+.top{display:flex;align-items:center;gap:16px;padding:10px 24px;background:var(--header-bg);border-bottom:1px solid var(--header-border);}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand svg{height:30px;width:auto;display:block;}
+.brand-word{font-size:18px;font-weight:700;color:var(--header-text);}
+.brand-word b{color:#0098d4;}
+.brand-sub{color:var(--header-dim);font-size:12.5px;border-left:1px solid var(--header-border);padding-left:14px;}
+.spacer{flex:1;}
+.top .who{color:var(--header-dim);font-size:13px;}
+
+.nav{display:flex;gap:4px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);}
+.nav button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font:inherit;padding:12px 16px;cursor:pointer;}
+.nav button:hover{color:var(--text);}
+.nav button.active{color:var(--text);border-bottom-color:var(--accent);font-weight:500;}
+.nav .count{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:100px;background:var(--bg);font-size:11px;}
+
+main{padding:20px 24px;max-width:1120px;}
+.note{font-size:12.5px;color:var(--faint);background:rgba(0,175,240,.06);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:18px;}
+.hidden{display:none;}
+
+.pill{display:inline-block;padding:2px 9px;border-radius:100px;font-size:11px;font-weight:600;background:rgba(139,152,175,.18);color:var(--muted);}
+.pill.g1{background:rgba(0,175,240,.16);color:var(--accent-strong);}
+.pill.g2{background:rgba(62,207,126,.16);color:var(--success);}
+.pill.g3{background:rgba(232,185,63,.16);color:var(--warn);}
+
+/* group card = policy editor */
+.gcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden;}
+.gcard>summary{list-style:none;cursor:pointer;padding:16px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.gcard>summary::-webkit-details-marker{display:none;}
+.gcard>summary .chev{color:var(--faint);transition:transform .15s;}
+.gcard[open]>summary .chev{transform:rotate(90deg);}
+.gcard>summary h3{margin:0;}
+.summary-line{color:var(--muted);font-size:12.5px;flex-basis:100%;margin-top:4px;padding-left:28px;}
+.summary-line b{color:var(--text);font-weight:500;}
+.preset{display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--muted);font-size:12.5px;}
+
+.editor{padding:4px 18px 16px;border-top:1px solid var(--border);}
+.rule{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:11px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.rule:last-of-type{border-bottom:none;}
+.rule .cls{min-width:168px;font-weight:500;display:flex;align-items:center;gap:9px;}
+.rule .dot{width:9px;height:9px;border-radius:2px;display:inline-block;}
+.rule .seg{color:var(--muted);}
+.rule .seg.dim{color:var(--faint);}
+select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:inherit;font-size:12.5px;}
+select.accent{border-color:rgba(0,175,240,.5);}
+select.off{color:var(--faint);}
+.sub{display:inline-flex;align-items:center;gap:6px;}
+.reboot-off .sub{display:none;}
+
+.btn{padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:6px;font:inherit;cursor:pointer;}
+.btn:hover{filter:brightness(1.08);}
+.btn.sec{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn.sec:hover{border-color:var(--accent);color:var(--accent-strong);}
+.row-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:2px 0 16px;font-size:12px;color:var(--muted);}
+.legend span{display:inline-flex;align-items:center;gap:6px;}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+.c-def{background:#6aa9ff;} .c-sec{background:#ef5b5b;} .c-qual{background:#00aff0;}
+.c-feat{background:#b06af5;} .c-drv{background:#8b98af;} .c-prod{background:#e8b93f;}
+
+.example{background:var(--surface-light);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;margin:0 0 18px;font-size:13px;}
+.example b{color:var(--accent-strong);}
+
+/* light tables for other tabs */
+.tbl{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.tbl th,.tbl td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;white-space:nowrap;}
+.tbl th{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;}
+.tbl tr:last-child td{border-bottom:none;}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:100px;font-size:11.5px;font-weight:600;}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;}
+.b-ok{background:rgba(62,207,126,.14);color:var(--success);}
+.b-warn{background:rgba(232,185,63,.14);color:var(--warn);}
+.b-err{background:rgba(239,91,91,.14);color:var(--error);}
+.b-idle{background:rgba(139,152,175,.14);color:var(--muted);}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:10px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.kpi .n{font-size:26px;font-weight:700;} .kpi .l{color:var(--muted);font-size:12.5px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 64 44" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#19c3ff"/><stop offset="1" stop-color="#013a86"/></linearGradient></defs>
+      <g fill="url(#g)">
+        <path d="M4 12h10a8 8 0 0 1 0 16H4a8 8 0 0 1 0-16Z"/>
+        <circle cx="32" cy="22" r="9" fill="none" stroke="url(#g)" stroke-width="7"/>
+        <path d="M46 12h6a8 8 0 0 1 0 16h-6a8 8 0 0 1 0-16Z"/>
+        <rect x="50" y="30" width="10" height="10" rx="2"/>
+      </g>
+    </svg>
+    <span class="brand-word">DN<b>W</b>sus</span>
+    <span class="brand-sub">Windows-Updates für Clients</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="who">DOMÄNE\\admin · Domänen-Admin</div>
+</header>
+
+<nav class="nav">
+  <button data-tab="grp" class="active">Gruppen &amp; Regeln</button>
+  <button data-tab="cli">Clients <span class="count">142</span></button>
+  <button data-tab="upd">Updates <span class="count">87</span></button>
+  <button data-tab="ov">Übersicht</button>
+  <button data-tab="none">Ohne Gruppe <span class="count">6</span></button>
+</nav>
+
+<main>
+  <div class="note">Mockup – nur Optik und Bedienidee, keine echten Daten, kein Backend.</div>
+
+  <!-- GRUPPEN & REGELN (Hauptansicht) -->
+  <section id="grp">
+    <h2>Gruppen &amp; Regeln</h2>
+    <p class="muted" style="margin:0 0 14px">Pro Gruppe legst du je Update-Klasse <b>zwei Dinge</b> fest: <b>wann installiert</b> wird und <b>wie der Neustart</b> gehandhabt wird. Jede Regel liest sich wie ein Satz.</p>
+
+    <div class="example">
+      Beispiel – genau dein Fall: <b>Gruppe 1, Sicherheit</b> → installieren <b>Sofort</b>, Neustart <b>verschiebbar per Popup</b>.
+      Updates ohne Neustart laufen sofort und lautlos durch; die mit Neustart werden sofort installiert, aber der Neustart ist verschiebbar.
+      In <b>Gruppe 2</b> steht dieselbe Klasse auf <b>Nach Zeitplan</b>.
+    </div>
+
+    <div class="legend">
+      <span><i class="c-def"></i>Definition</span><span><i class="c-sec"></i>Sicherheit/kritisch</span>
+      <span><i class="c-qual"></i>Qualität/Patchday</span><span><i class="c-feat"></i>Funktion/Upgrade</span>
+      <span><i class="c-drv"></i>Treiber</span><span><i class="c-prod"></i>Produkt (SQL/Office)</span>
+    </div>
+
+    <!-- GROUP 1 (aufgeklappt) -->
+    <details class="gcard" open>
+      <summary>
+        <span class="chev">▶</span>
+        <span class="pill g1">GRP_Update1</span>
+        <h3>48 Clients</h3>
+        <span class="preset">Vorlage: <select class="accent"><option>Standard</option><option>Konservativ</option><option>Aggressiv</option><option>Wartungsfenster</option><option>Benutzerdefiniert</option></select></span>
+        <span class="summary-line">Sicherheit <b>sofort</b>, Neustart verschiebbar · Qualität <b>sofort</b>, Neustart verschiebbar · Funktion <b>aus</b> · Produkt <b>Wartungsfenster</b></span>
+      </summary>
+      <div class="editor">
+        <div class="rule">
+          <span class="cls"><span class="dot c-def"></span>Definition</span>
+          <span class="seg">installieren</span>
+          <select class="accent"><option>Sofort</option><option>Nach Zeitplan</option><option>Manuell</option><option>Aus</option></select>
+          <span class="seg dim">· kein Neustart nötig</span>
+        </div>
+        <div class="rule">
+          <span class="cls"><span class="dot c-sec"></span>Sicherheit</span>
+          <span class="seg">installieren</span>
+          <select class="accent"><option>Sofort</option><option>Nach Zeitplan</option><option>Manuell</option><option>Aus</option></select>
+          <span class="sub"><span class="seg">· Neustart (falls nötig)</span>
+          <select><option>Verschiebbar per Popup</option><option>Sofort</option><option>Fester Zeitpunkt</option><option>Nicht erzwingen</option></select></span>
+        </div>
+        <div class="rule">
+          <span class="cls"><span class="dot c-qual"></span>Qualität</span>
+          <span class="seg">installieren</span>
+          <select class="accent"><option>Sofort</option><option>Nach Zeitplan</option><option>Manuell</option><option>Aus</option></select>
+          <span class="sub"><span class="seg">· Neustart (falls nötig)</span>
+          <select><option>Verschiebbar per Popup</option><option>Sofort</option><option>Fester Zeitpunkt</option><option>Nicht erzwingen</option></select></span>
+        </div>
+        <div class="rule reboot-off">
+          <span class="cls"><span class="dot c-feat"></span>Funktion</span>
+          <span class="seg">installieren</span>
+          <select class="off"><option>Aus</option><option>Manuell</option><option>Nach Zeitplan</option><option>Sofort</option></select>
+          <span class="sub"><span class="seg">· Neustart (falls nötig)</span><select><option>Verschiebbar per Popup</option></select></span>
+        </div>
+        <div class="rule">
+          <span class="cls"><span class="dot c-prod"></span>Produkt (SQL/Office)</span>
+          <span class="seg">installieren</span>
+          <select><option>Nach Zeitplan</option><option>Manuell</option><option>Sofort</option><option>Aus</option></select>
+          <span class="sub"><span class="seg">· Neustart/Dienste</span>
+          <select><option>Fester Zeitpunkt</option><option>Verschiebbar per Popup</option><option>Nicht erzwingen</option></select></span>
+        </div>
+        <div class="rule reboot-off">
+          <span class="cls"><span class="dot c-drv"></span>Treiber</span>
+          <span class="seg">installieren</span>
+          <select class="off"><option>Aus</option><option>Manuell</option><option>Nach Zeitplan</option><option>Sofort</option></select>
+          <span class="sub"><span class="seg">· Neustart</span><select><option>Verschiebbar per Popup</option></select></span>
+        </div>
+        <div class="row-actions">
+          <button class="btn">Jetzt installieren …</button>
+          <button class="btn sec">Zeitpläne bearbeiten</button>
+          <button class="btn sec">Speichern</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- GROUP 2 (zu, nur Zusammenfassung) -->
+    <details class="gcard">
+      <summary>
+        <span class="chev">▶</span>
+        <span class="pill g2">GRP_Update2</span>
+        <h3>61 Clients</h3>
+        <span class="preset">Vorlage: <select class="accent"><option>Wartungsfenster</option><option>Standard</option><option>Konservativ</option><option>Aggressiv</option><option>Benutzerdefiniert</option></select></span>
+        <span class="summary-line">Sicherheit <b>nach Zeitplan (tägl. 22:00)</b> · Qualität <b>Patchday +1</b>, Neustart verschiebbar · Funktion <b>aus</b> · Produkt <b>Wartungsfenster</b></span>
+      </summary>
+      <div class="editor"><p class="muted" style="font-size:12.5px">Aufklappen zum Bearbeiten – gleiche Satz-Regeln wie bei Gruppe 1.</p></div>
+    </details>
+
+    <!-- GROUP 3 (zu) -->
+    <details class="gcard">
+      <summary>
+        <span class="chev">▶</span>
+        <span class="pill g3">GRP_Update3</span>
+        <h3>33 Clients</h3>
+        <span class="preset">Vorlage: <select class="accent"><option>Aggressiv</option><option>Standard</option><option>Konservativ</option><option>Wartungsfenster</option><option>Benutzerdefiniert</option></select></span>
+        <span class="summary-line">Alles <b>nach Zeitplan (nachts)</b> · Neustart <b>automatisch nach 5 Min. mit Hinweis</b> · Funktion <b>Sa 01:00</b></span>
+      </summary>
+      <div class="editor"><p class="muted" style="font-size:12.5px">Aufklappen zum Bearbeiten – gleiche Satz-Regeln wie bei Gruppe 1.</p></div>
+    </details>
+
+    <p class="muted" style="font-size:12.5px;margin-top:14px">Zugeklappt siehst du pro Gruppe nur die <b>Vorlage</b> und eine Ein-Satz-Zusammenfassung. Erst beim Aufklappen kommen die Details – so bleibt es schlicht, bietet aber jede Möglichkeit.</p>
+  </section>
+
+  <!-- CLIENTS -->
+  <section id="cli" class="hidden">
+    <h2>Clients</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Client</th><th>Gruppe</th><th>Status</th><th>Offen</th><th>Letzter Kontakt</th><th>Agent</th></tr></thead>
+      <tbody>
+        <tr><td>WS-CAD-07</td><td><span class="pill g1">1</span></td><td><span class="badge b-warn">Neustart geplant 20:00</span></td><td class="muted">Sicherheit ·2</td><td>vor 2 Min.</td><td>2.2.2</td></tr>
+        <tr><td>WS-BÜRO-14</td><td><span class="pill g2">2</span></td><td><span class="badge b-ok">Bereit</span></td><td class="muted">—</td><td>vor 1 Min.</td><td>2.2.2</td></tr>
+        <tr><td>WS-CAM-02</td><td><span class="pill g3">3</span></td><td><span class="badge b-err">Scan-Fehler</span></td><td class="muted">unbekannt</td><td>vor 4 Min.</td><td>2.2.2</td></tr>
+        <tr><td>WS-LAGER-01</td><td><span class="pill g2">2</span></td><td><span class="badge b-idle">Offline</span></td><td class="muted">Sicherheit ·5</td><td>vor 3 Tagen</td><td>2.1.9</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- UPDATES -->
+  <section id="upd" class="hidden">
+    <h2>Ausstehende Updates nach Klasse</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Klasse</th><th>Anzahl</th><th>Betroffene Clients</th><th>Aktion</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill" style="background:rgba(239,91,91,.16);color:#ef5b5b">Sicherheit</span></td><td>38</td><td class="muted">38 Clients (G1 24 · G2 10 · G3 4)</td><td><button class="btn sec">Anstoßen</button></td></tr>
+        <tr><td><span class="pill" style="background:rgba(0,175,240,.16);color:#33c2f7">Qualität</span></td><td>22</td><td class="muted">19 Clients</td><td><button class="btn sec">Anstoßen</button></td></tr>
+        <tr><td><span class="pill" style="background:rgba(232,185,63,.16);color:#e8b93f">Produkt</span></td><td>8</td><td class="muted">3 Clients (SQL/Office)</td><td><button class="btn sec">Anstoßen</button></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ÜBERSICHT -->
+  <section id="ov" class="hidden">
+    <h2>Übersicht</h2>
+    <div class="kpis">
+      <div class="kpi"><div class="n">136 / 142</div><div class="l">Clients online</div></div>
+      <div class="kpi"><div class="n warn">87</div><div class="l">Ausstehende Updates</div></div>
+      <div class="kpi"><div class="n">9</div><div class="l">Neustarts offen</div></div>
+      <div class="kpi"><div class="n error">3</div><div class="l">Fehler (24 h)</div></div>
+    </div>
+    <p class="muted" style="font-size:12.5px">Die Übersicht ist bewusst klein – das Werkzeug sind die Regeln, nicht die Auswertung.</p>
+  </section>
+
+  <section id="none" class="hidden">
+    <h2>Ohne Gruppe</h2>
+    <p class="muted">Clients in keiner Update-Gruppe: melden nur ihren Stand, werden nur manuell betankt.</p>
+  </section>
+</main>
+
+<script>
+document.querySelectorAll('.nav button').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.nav button').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');
+    var tab=b.getAttribute('data-tab');
+    ['grp','cli','upd','ov','none'].forEach(function(id){
+      document.getElementById(id).classList.toggle('hidden',id!==tab);
+    });
+  });
+});
+</script>
+</body>
+</html>
