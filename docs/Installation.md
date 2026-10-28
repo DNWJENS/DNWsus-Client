@@ -19,8 +19,11 @@
    - Startmenü-Eintrag **DNWsus → DNWsus Dashboard**
 3. Beim ersten Start stellt der Dienst sein **eigenes HTTPS-Zertifikat** aus (10 Jahre gültig, „DNWsus Server“ im
    Zertifikatsspeicher des Computers) und trägt es auf dem Server als vertrauenswürdig ein. Eine interne CA wird nicht benötigt.
-4. Dashboard auf dem Server öffnen: Startmenü **DNWsus Dashboard** bzw. `https://localhost:13162`.
-   Zugriff haben nur **Domänen-Admins**, und nur direkt auf diesem Server.
+4. Dashboard öffnen: auf dem Server per Startmenü **DNWsus Dashboard** bzw. `https://localhost:13162` (ohne Anmeldeabfrage).
+   Von anderen Rechnern über `https://<server>:13162` erreichbar, soweit die Firewall Port 13162 zulässt – dort erscheint
+   eine **Anmeldeabfrage**. Zugriff haben in jedem Fall nur **Domänen-Admins**; alle anderen werden erneut zur Anmeldung
+   aufgefordert. Von fremden Rechnern warnt der Browser wegen des selbst ausgestellten Zertifikats (wegklicken oder das
+   Serverzertifikat per GPO in die vertrauenswürdigen Stammzertifizierungsstellen verteilen).
 
 Daten (Datenbank, erzeugte Agent-MSI) liegen unter `C:\ProgramData\DNWsus\Server` (nur SYSTEM/Administratoren).
 Einstellungen (Gruppennamen, Admin-Gruppe) stehen in `C:\Program Files\DNWsus\Server\appsettings.json`

@@ -22,7 +22,9 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
 
 ## Aufbau
 - `src/DnwSus.Server` – ASP.NET Core .NET 10, self-contained, Windows-Dienst `DnwSusServer` (SYSTEM), HTTPS-Port **13162**.
-  - Dashboard nur vom Server selbst und nur für Domänen-Admins (Negotiate; `DnwSus:AdminGroup` in appsettings.json).
+  - Dashboard von überall erreichbar (soweit Firewall), nur für Domänen-Admins (Negotiate: lokal SSO ohne Abfrage,
+    von fremden Rechnern Anmeldeabfrage; Nicht-Admins bekommen erneut die Abfrage; `DnwSus:AdminGroup` in appsettings.json).
+    Die „nur-lokal"-Sperre (`LocalAccess.IsLocal`) ist seit v2.3.1 nicht mehr aktiv.
   - Von Clients erreichbar nur `/api/agent/report` (Kerberos mit Computerkonto, Name muss zum Konto passen)
     und `/download/DnwSus-Agent.msi`. Siehe `Services/LocalAccess.cs`, `Api/AgentApi.cs`.
   - Zertifikat stellt der Server selbst aus (`Services/ServerCertificate.cs`, 10 Jahre, LocalMachine\My, FriendlyName
@@ -63,6 +65,8 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
 - Zeitpläne haben eine **Klasse** (leer = alle „schedule"-Klassen der Gruppe); `ScheduleService` legt klassen-spezifische Läufe an.
 - Manuelle Läufe (Gruppe installieren / Soforthilfe) sparen „off"-Klassen aus. Dashboard: **Regel-Editor** je Gruppen-Tab
   (Klasse × Install/Reboot) + Klassen-Auswahl im Zeitplan. Design-Referenz: `docs/mockups/dashboard-regeln.html`.
+- v2.3.1: **Dashboard von überall erreichbar** (vorher nur lokal). `Program.cs` entfernt die `LocalAccess.IsLocal`-Sperre;
+  Negotiate + Domänen-Admins-Prüfung bleiben – lokal SSO, remote Anmeldeabfrage, Nicht-Admins bekommen erneut die Abfrage.
 - **Offen (nächster Schritt):** kompletter optischer Umbau der übrigen Tabs (Karten/Badges wie im Mockup), bisher nur der Regel-Editor.
 
 ## Stand / offen

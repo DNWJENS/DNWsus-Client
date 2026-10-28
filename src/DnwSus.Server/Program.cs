@@ -61,19 +61,15 @@ app.UseHsts();
 app.UseRouting();
 app.UseAuthentication();
 
-// Zugriffsschutz: Das Dashboard ist nur auf dem Server selbst und nur für Admins erreichbar.
+// Zugriffsschutz fürs Dashboard: von überall erreichbar (soweit die Firewall es zulässt), aber nur für Domänen-Admins.
+// Auf dem Server selbst meldet Windows den angemeldeten Benutzer per SSO an (keine Abfrage); von fremden Rechnern
+// erscheint eine Anmeldeabfrage. Wer angemeldet, aber kein Admin ist, bekommt erneut die Abfrage (anderes Konto).
 // Agent-Schnittstelle und MSI-Download sind auch von Clients erreichbar und haben eigene Regeln (AgentApi).
 app.Use(async (context, next) =>
 {
     if (LocalAccess.IsRemoteAllowedPath(context.Request.Path))
     {
         await next();
-        return;
-    }
-
-    if (!LocalAccess.IsLocal(context))
-    {
-        await Deny(context, "Das DNWsus-Dashboard ist nur direkt auf dem Server erreichbar, auf dem der Dienst läuft.");
         return;
     }
 
@@ -86,7 +82,9 @@ app.Use(async (context, next) =>
     var ad = context.RequestServices.GetRequiredService<AdService>();
     if (!ad.IsAdmin(identity, out string? problem))
     {
-        await Deny(context, problem ?? $"Kein Zugriff für {identity.Name}. Das Dashboard ist nur für Mitglieder der Gruppe „{ad.AdminGroupDisplayName}“ freigegeben.");
+        app.Logger.LogInformation("Dashboard-Zugriff abgelehnt für {User}: {Problem}", identity.Name, problem);
+        // Angemeldet, aber nicht in der Admin-Gruppe → erneute Anmeldeabfrage, damit ein Domänen-Admin-Konto genutzt werden kann.
+        await context.ChallengeAsync();
         return;
     }
 
@@ -99,13 +97,3 @@ app.MapRazorPages().WithStaticAssets();
 app.MapAgentApi();
 
 app.Run();
-
-static Task Deny(HttpContext context, string message)
-{
-    context.Response.StatusCode = StatusCodes.Status403Forbidden;
-    context.Response.ContentType = "text/html; charset=utf-8";
-    return context.Response.WriteAsync(
-        "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\"><title>DNWsus – Kein Zugriff</title></head>" +
-        "<body style=\"font-family:Segoe UI,sans-serif;background:#1e1e2e;color:#cdd6f4;padding:40px\">" +
-        "<h2 style=\"color:#f38ba8\">Kein Zugriff</h2><p>" + WebUtility.HtmlEncode(message) + "</p></body></html>");
-}
