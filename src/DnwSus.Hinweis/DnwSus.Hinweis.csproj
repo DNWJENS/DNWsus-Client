@@ -17,4 +17,11 @@
     <Description>DNWsus – Hinweis zum Neustart nach Windows-Updates</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Markenlogo (transparent) und DNW-Hausschrift Ubuntu (frei weiterverteilbar, Ubuntu Font License) -->
+    <EmbeddedResource Include="Resources\dnw-logo.png" LogicalName="DnwSus.Hinweis.dnw-logo.png" />
+    <EmbeddedResource Include="Resources\Ubuntu-Regular.ttf" LogicalName="DnwSus.Hinweis.Ubuntu-Regular.ttf" />
+    <EmbeddedResource Include="Resources\Ubuntu-Bold.ttf" LogicalName="DnwSus.Hinweis.Ubuntu-Bold.ttf" />
+  </ItemGroup>
+
 </Project>

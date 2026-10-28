@@ -72,7 +72,10 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   Notweg bleibt neue Agent-MSI per GPO.
 - **Remote-Agent-Push aus dem Dashboard (ADMIN$ + WinRM/WMI o. Ä.) wird NICHT gebaut** – feste Grenze (laterale-Bewegung-Technik).
   Verteilung läuft über GPO; für Massen-Push ist das Kunden-RMM/Intune zuständig.
+- v2.2.1: **Logo im Hinweis-Popup.** `DnwSus.Hinweis` zeigt im Kopf das DNW-Logo (transparent) + Wortmarke „DNWsus”
+  in der Hausschrift **Ubuntu**; Schrift (Ubuntu-Regular/Bold, Ubuntu Font License) und Logo sind als Ressourcen
+  eingebettet (`src/DnwSus.Hinweis/Resources`, per `PrivateFontCollection` geladen, Rückfall Segoe UI), weil Ubuntu
+  auf Clients nicht installiert ist.
 - Offen (zurückgestellt): **„Agent veraltet”-Markierung entschärfen** (Agent/Server teilen die Version →
   jedes Dashboard-Update flaggt alle Agenten als „alt”; separate Agent-Mindestversion o. Ä.).
-- Offen (wartet auf Lieferung): Logo im Hinweis (Benutzer liefert transparente Version), Code-Signatur
-  (öffentliches Zertifikat oder Trusted Signing – Benutzer beschafft, Signier-Schritt wird dann im Build verdrahtet).
+- **Code-Signatur gestrichen** – Verteilung läuft ausschließlich per GPO, eine Signatur ist dafür nicht nötig.

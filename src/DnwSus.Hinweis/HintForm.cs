@@ -1,16 +1,74 @@
 using System;
 using System.Drawing;
+using System.Drawing.Text;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace DnwSus.Hinweis
 {
-    /// <summary>Helles Hinweisfenster im DNW-Blau. Logo folgt, sobald eine transparente Version vorliegt.</summary>
+    /// <summary>Helles Hinweisfenster im DNW-Design: Kopf mit Logo und „DNWsus" in der Hausschrift Ubuntu.</summary>
     internal sealed class HintForm : Form
     {
         private static readonly Color Brand = Color.FromArgb(0, 120, 212);
         private static readonly Color BrandDark = Color.FromArgb(0, 40, 110);
         private static readonly Color TextColor = Color.FromArgb(30, 30, 30);
         private static readonly Color Muted = Color.FromArgb(100, 100, 100);
+
+        // Eingebettete Hausschrift (Ubuntu) und Logo – auf Clients ist Ubuntu nicht installiert, daher mitgeliefert.
+        private static readonly PrivateFontCollection FontCollection = new PrivateFontCollection();
+        private static readonly FontFamily BrandFamily = LoadBrandFamily();
+        private static readonly Image LogoImage = LoadLogo();
+
+        private static FontFamily LoadBrandFamily()
+        {
+            try
+            {
+                AddMemoryFont("DnwSus.Hinweis.Ubuntu-Regular.ttf");
+                AddMemoryFont("DnwSus.Hinweis.Ubuntu-Bold.ttf");
+                return FontCollection.Families.Length > 0 ? FontCollection.Families[0] : null;
+            }
+            catch { return null; }
+        }
+
+        private static void AddMemoryFont(string resource)
+        {
+            using (var stream = typeof(HintForm).Assembly.GetManifestResourceStream(resource))
+            {
+                if (stream == null) return;
+                byte[] data = new byte[stream.Length];
+                int read = 0;
+                while (read < data.Length) read += stream.Read(data, read, data.Length - read);
+                IntPtr buffer = Marshal.AllocCoTaskMem(data.Length);
+                try
+                {
+                    Marshal.Copy(data, 0, buffer, data.Length);
+                    FontCollection.AddMemoryFont(buffer, data.Length); // kopiert die Daten intern
+                }
+                finally { Marshal.FreeCoTaskMem(buffer); }
+            }
+        }
+
+        private static Image LoadLogo()
+        {
+            try
+            {
+                using (var stream = typeof(HintForm).Assembly.GetManifestResourceStream("DnwSus.Hinweis.dnw-logo.png"))
+                    return stream == null ? null : new Bitmap(Image.FromStream(stream));
+            }
+            catch { return null; }
+        }
+
+        /// <summary>Hausschrift Ubuntu, falls geladen; sonst Segoe UI als Rückfall.</summary>
+        private static Font BrandFont(float size, FontStyle style)
+        {
+            try
+            {
+                if (BrandFamily != null && BrandFamily.IsStyleAvailable(style)) return new Font(BrandFamily, size, style);
+                if (BrandFamily != null && BrandFamily.IsStyleAvailable(FontStyle.Regular)) return new Font(BrandFamily, size, FontStyle.Regular);
+            }
+            catch { }
+            return new Font("Segoe UI", size, style);
+        }
 
         private const string IntroText =
             "Auf diesem PC wurden Windows-Updates installiert. Damit sie wirksam werden, muss der PC neu gestartet werden.\n\n" +
@@ -25,7 +83,7 @@ namespace DnwSus.Hinweis
         private HintForm(string title)
         {
             Text = "Windows-Updates – " + title;
-            Font = new Font("Segoe UI", 10f);
+            Font = BrandFont(10f, FontStyle.Regular);
             BackColor = Color.White;
             ForeColor = TextColor;
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -46,26 +104,46 @@ namespace DnwSus.Hinweis
                 Dock = DockStyle.Fill
             };
 
-            var header = new Label
+            // Kopf im DNW-Design: weißer Hintergrund, transparentes Logo + Wortmarke „DNWsus" in Ubuntu.
+            var header = new TableLayoutPanel
             {
-                Text = "DNW  ·  Windows-Updates",
-                ForeColor = Color.White,
-                BackColor = Brand,
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
-                AutoSize = false,
-                Size = new Size(520, 46),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(16, 0, 0, 0),
-                Margin = new Padding(0)
+                ColumnCount = 2,
+                RowCount = 1,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.White,
+                Margin = new Padding(0),
+                Padding = new Padding(16, 12, 16, 12)
             };
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+            var logoBox = new PictureBox
+            {
+                Image = LogoImage,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Size = new Size(40, 40),
+                Margin = new Padding(0, 0, 12, 0),
+                Anchor = AnchorStyles.None
+            };
+            var brandLabel = new Label
+            {
+                Text = "DNWsus",
+                Font = BrandFont(20f, FontStyle.Bold),
+                ForeColor = BrandDark,
+                AutoSize = true,
+                Anchor = AnchorStyles.None
+            };
+            header.Controls.Add(logoBox, 0, 0);
+            header.Controls.Add(brandLabel, 1, 0);
 
             var titleLabel = new Label
             {
                 Text = title,
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+                Font = BrandFont(13f, FontStyle.Bold),
                 ForeColor = BrandDark,
                 AutoSize = true,
-                Margin = new Padding(18, 16, 18, 4)
+                Margin = new Padding(18, 14, 18, 4)
             };
 
             _message = new Label { AutoSize = true, MaximumSize = new Size(480, 0), Margin = new Padding(18, 6, 18, 6) };
@@ -80,7 +158,17 @@ namespace DnwSus.Hinweis
                 Margin = new Padding(14, 6, 14, 0)
             };
 
+            var separator = new Panel
+            {
+                BackColor = Brand,
+                Height = 2,
+                Margin = new Padding(0),
+                Dock = DockStyle.Fill,
+                MinimumSize = new Size(520, 2)
+            };
+
             layout.Controls.Add(header);
+            layout.Controls.Add(separator);
             layout.Controls.Add(titleLabel);
             layout.Controls.Add(_message);
             layout.Controls.Add(_info);
