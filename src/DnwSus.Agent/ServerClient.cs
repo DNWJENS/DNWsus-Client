@@ -22,10 +22,17 @@ namespace DnwSus.Agent
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
         }
 
+        /// <summary>Meldung an den aktuell konfigurierten Server (Adresse + Zertifikat aus der Registry).</summary>
         public AgentResponse Report(AgentReport report)
         {
-            string url = AgentPaths.ServerUrl;
-            string pinned = AgentPaths.CertificateHash.Replace(" ", "").ToUpperInvariant();
+            return Report(report, AgentPaths.ServerUrl, AgentPaths.CertificateHash);
+        }
+
+        /// <summary>Meldung an einen bestimmten Server – wird beim Serverumzug zum Prüfen des neuen Servers genutzt.</summary>
+        public AgentResponse Report(AgentReport report, string url, string certHash)
+        {
+            url = (url ?? "").Trim();
+            string pinned = (certHash ?? "").Replace(" ", "").ToUpperInvariant();
             if (url.Length == 0 || pinned.Length == 0)
                 throw new InvalidOperationException("Server-Adresse oder Zertifikat fehlen in der Registry (HKLM\\" + AgentPaths.ConfigKey + ").");
 

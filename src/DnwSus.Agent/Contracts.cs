@@ -64,6 +64,12 @@ namespace DnwSus.Agent
         public List<InstallRun> InstallRuns { get; set; } = new List<InstallRun>();
         public bool ScanRequested { get; set; }
         public string ServerTime { get; set; } = "";
+
+        /// <summary>Serverumzug: Adresse des neuen Servers (leer = kein Umzug).</summary>
+        public string MoveToUrl { get; set; } = "";
+
+        /// <summary>Serverumzug: SHA-256-Fingerabdruck des neuen Serverzertifikats.</summary>
+        public string MoveToCertHash { get; set; } = "";
     }
 
     public sealed class InstallRun

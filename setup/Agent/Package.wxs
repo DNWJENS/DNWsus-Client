@@ -49,7 +49,11 @@
                               RestartServiceDelayInSeconds="60"
                               ResetPeriodInDays="1" />
         </ServiceInstall>
-        <ServiceControl Id="AgentServiceControl" Name="DnwSusAgent" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+        <!-- Dienst nur beim Deinstallieren stoppen (Stop="uninstall"), nicht bei jeder (Re-)Installation.
+             So ist ein gleichversionierter `msiexec /i`-Lauf ein echtes No-Op und der Dienst läuft durch.
+             Beim echten Upgrade entfernt MajorUpgrade zuerst die alte Version (die ihren Dienst dabei stoppt),
+             danach installiert die neue und startet ihn wieder. -->
+        <ServiceControl Id="AgentServiceControl" Name="DnwSusAgent" Start="install" Stop="uninstall" Remove="uninstall" Wait="yes" />
       </Component>
 
       <Component Id="AgentConfig" Bitness="always64">

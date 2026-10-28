@@ -135,6 +135,11 @@ namespace DnwSus.Agent
             }
             _nextReport = DateTime.Now + ReportInterval;
 
+            // Serverumzug hat Vorrang: nur übernehmen, wenn der neue Server erreichbar ist und sein Zertifikat passt.
+            if (!string.IsNullOrEmpty(response.MoveToUrl) && !string.IsNullOrEmpty(response.MoveToCertHash)
+                && TryMigrate(response.MoveToUrl, response.MoveToCertHash, report))
+                return;
+
             if (_work != null && _work.IsAlive) return;
 
             // Offene Läufe bevorzugt über InstallRuns (mit Reboot-Zeit); gelten auch für gruppenlose Clients (manuell).
@@ -152,6 +157,35 @@ namespace DnwSus.Agent
                 if (response.ScanRequested || lastScan == null || DateTime.Now - lastScan.Value > ScanInterval)
                     StartWork(Scan);
             }
+        }
+
+        /// <summary>
+        /// Serverumzug: Der (alte) Server weist auf einen neuen. Erst wenn dieser erreichbar ist und sein Zertifikat
+        /// zum angegebenen Fingerabdruck passt, werden Adresse und Fingerabdruck in der Registry umgestellt.
+        /// </summary>
+        private bool TryMigrate(string newUrl, string newHash, AgentReport report)
+        {
+            newUrl = newUrl.Trim();
+            newHash = newHash.Replace(" ", "").ToUpperInvariant();
+            string curUrl = AgentPaths.ServerUrl.Trim().TrimEnd('/');
+            string curHash = AgentPaths.CertificateHash.Replace(" ", "").ToUpperInvariant();
+            if (string.Equals(newUrl.TrimEnd('/'), curUrl, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(newHash, curHash, StringComparison.OrdinalIgnoreCase))
+                return false; // bereits auf dem neuen Server
+
+            try
+            {
+                _server.Report(report, newUrl, newHash); // Prüfung: neuer Server erreichbar, Zertifikat passt
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Serverumzug nach " + newUrl + " noch nicht möglich: " + (ex.InnerException?.Message ?? ex.Message));
+                return false;
+            }
+
+            AgentPaths.SetServer(newUrl, newHash);
+            Log.Info("Serverumzug übernommen: Agent meldet sich künftig an " + newUrl + ".");
+            return true;
         }
 
         private string StateText()

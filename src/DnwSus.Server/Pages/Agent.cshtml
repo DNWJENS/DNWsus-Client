@@ -12,28 +12,22 @@
 }
 
 <section class="panel">
-    <h3>Agent-MSI automatisch an die Freigabe kopieren</h3>
-    <p class="muted">Der Server legt die aktuelle, gebundene Agent-MSI an einen von den Clients erreichbaren Pfad –
-        <b>fester Dateiname, wird überschrieben</b>, damit die GPO-Aufgabe nie angepasst werden muss. So entfällt das manuelle Kopieren nach jedem Update.</p>
-    <form method="post" asp-page-handler="Copy" class="dist-form">
-        <label class="field">Zielpfad (UNC, inkl. fester Dateiname)
-            <input type="text" name="targetPath" value="@Model.TargetPath" placeholder="\\fileserver\DNWsus$\DnwSus-Agent.msi" autocomplete="off" />
-        </label>
-        <p class="muted" style="margin:10px 0 2px">Zwei Wege, <b>beide ohne gespeichertes Passwort</b>:</p>
-        <ul class="muted" style="margin:0 0 10px">
-            <li><b>Eigene Freigabe:</b> Schreibrecht für das Computerkonto dieses Servers → Benutzer/Passwort leer lassen, der Server kopiert mit eigener Identität (geht auch unbeaufsichtigt).</li>
-            <li><b>NETLOGON/SYSVOL:</b> Benutzer und Passwort eines Kontos mit Schreibrecht eingeben – gilt <b>nur für diese Kopie</b>, wird nicht gespeichert (SYSTEM darf dort nicht schreiben).</li>
-        </ul>
-        <div class="dist-cred">
-            <label class="field">Benutzer (optional)
-                <input type="text" name="user" placeholder="DOMÄNE\Admin" autocomplete="off" />
-            </label>
-            <label class="field">Passwort (optional, nicht gespeichert)
-                <input type="password" name="password" autocomplete="new-password" />
-            </label>
-        </div>
-        <button type="submit" class="button">Jetzt kopieren / testen</button>
-    </form>
+    <h3>Agent-Freigabe (automatisch)</h3>
+    <p class="muted">Der Server legt beim Start eine <b>öffentlich lesbare Freigabe</b> an und hält dort immer die aktuelle
+        Agent-MSI bereit (fester Name, wird überschrieben – auch nach jedem Server-Update). Du musst pro Domäne nur noch
+        <b>eine GPO</b> mit genau diesem Pfad anlegen:</p>
+    <p><code class="wrap" id="shareUnc">@Model.ShareUnc</code>
+        <button class="link" type="button" onclick="navigator.clipboard.writeText(document.getElementById('shareUnc').textContent)">Pfad kopieren</button></p>
+    @if (Model.ShareError != null)
+    {
+        <div class="banner error">Die Freigabe konnte nicht automatisch angelegt werden: @Model.ShareError<br />
+            Du kannst die Freigabe von Hand anlegen (Ordner <code>C:\ProgramData\DNWsus\Share</code>, Freigabename <code>DNWsus</code>, Jeder lesen) oder unten einen abweichenden Zielpfad angeben.</div>
+    }
+    else
+    {
+        <p class="muted">Leserecht hat jedes Domänenkonto inkl. der Computerkonten (nötig, weil die GPO-Installation als Computerkonto läuft).
+            Voraussetzung: die Clients erreichen den Server per SMB (Port 445) – die Firewall-Freigabe nimmst du selbst vor.</p>
+    }
 </section>
 
 <section class="panels">
@@ -49,11 +43,8 @@
             else
             {
                 <p><a class="button" href="/download/DnwSus-Agent.msi">DnwSus-Agent.msi herunterladen (v@(Model.AgentVersion))</a></p>
-                <p><b>Ohne Browser-Warnungen:</b> Dieselbe MSI liegt auf diesem Server unter</p>
-                <p><code class="wrap" id="msiPath">@Model.MsiPath</code>
-                    <button class="link" type="button" onclick="navigator.clipboard.writeText(document.getElementById('msiPath').textContent)">Pfad kopieren</button></p>
-                <p class="muted">Von dort im Explorer direkt auf die Freigabe für die GPO kopieren (Ordner ist nur für Administratoren lesbar).
-                    Beim Download warnen Browser, weil die MSI (noch) nicht code-signiert ist.</p>
+                <p class="muted">Für die GPO reicht der Freigabe-Pfad oben. Der Download hier ist nur für die manuelle Installation gedacht
+                    (Browser warnen, weil die MSI noch nicht code-signiert ist).</p>
             }
             <table class="mini">
                 <tr><td>Server-Adresse</td><td><code>@Model.Identity.Url</code></td></tr>
@@ -78,20 +69,73 @@
 </section>
 
 <section class="panel">
+    <h3>Serverumzug</h3>
+    @if (Model.MoveToUrl.Length > 0)
+    {
+        <div class="banner info">Serverumzug <b>aktiv</b>. Agenten stellen bei ihrer nächsten Meldung um auf:<br />
+            <code class="wrap">@Model.MoveToUrl</code><br />
+            Zertifikat <code class="wrap">@Model.MoveToCertHash</code></div>
+        <p class="muted">Jeder Agent übernimmt den neuen Server erst, wenn dieser erreichbar ist und sein Zertifikat zum Fingerabdruck passt.
+            Offline-Clients ziehen beim nächsten Kontakt nach. Beende den Umzug erst, wenn alle Agenten auf dem neuen Server gemeldet sind.</p>
+        <form method="post" asp-page-handler="MigrateCancel" class="inline">
+            <button type="submit" class="button secondary">Serverumzug beenden</button>
+        </form>
+    }
+    else
+    {
+        <p class="muted">Agenten auf einen <b>neuen</b> DNWsus-Server umziehen, ohne eine neue MSI zu verteilen: Der alte Server teilt
+            den Agenten Adresse und Zertifikat des neuen Servers mit, die Agenten stellen sich selbst um. Adresse und Fingerabdruck
+            stehen im Dashboard des <b>neuen</b> Servers (Seite „Agent“).</p>
+        <form method="post" asp-page-handler="Migrate" class="dist-form">
+            <label class="field">Adresse des neuen Servers
+                <input type="text" name="newUrl" placeholder="https://neuerserver.domäne:13162/" autocomplete="off" />
+            </label>
+            <label class="field">Zertifikat des neuen Servers (SHA-256)
+                <input type="text" name="newCertHash" placeholder="AB12…" autocomplete="off" />
+            </label>
+            <button type="submit" class="button">Serverumzug starten</button>
+        </form>
+    }
+</section>
+
+<details class="panel">
+    <summary><b>Abweichender Zielpfad (optional)</b></summary>
+    <p class="muted" style="margin-top:10px">Nur nötig, wenn die Agent-MSI nicht in die Server-eigene Freigabe, sondern an einen
+        <b>anderen</b> Ort soll (z. B. einen zentralen Dateiserver). Leer lassen = Server-eigene Freigabe oben wird genutzt.
+        Es genügt ein <b>Ordner</b>; den Dateinamen <code>DnwSus-Agent.msi</code> hängt der Server an.</p>
+    <form method="post" asp-page-handler="Copy" class="dist-form">
+        <label class="field">Zielordner oder vollständiger Pfad
+            <input type="text" name="targetPath" value="@Model.TargetPath" placeholder="\\fileserver\Software$\DNWsus" autocomplete="off" />
+        </label>
+        <ul class="muted" style="margin:0 0 10px">
+            <li><b>Eigene Freigabe:</b> Schreibrecht für das Computerkonto dieses Servers → Benutzer/Passwort leer lassen (läuft dann auch automatisch).</li>
+            <li><b>NETLOGON/SYSVOL:</b> Benutzer und Passwort eines Kontos mit Schreibrecht – gilt <b>nur für diese Kopie</b>, wird nicht gespeichert, keine Automatik.</li>
+        </ul>
+        <div class="dist-cred">
+            <label class="field">Benutzer (optional)
+                <input type="text" name="user" placeholder="DOMÄNE\Admin" autocomplete="off" />
+            </label>
+            <label class="field">Passwort (optional, nicht gespeichert)
+                <input type="password" name="password" autocomplete="new-password" />
+            </label>
+        </div>
+        <button type="submit" class="button secondary">Jetzt kopieren / testen</button>
+    </form>
+</details>
+
+<section class="panel">
     <h3>Verteilung per GPO</h3>
     <ol>
-        <li>MSI (siehe Pfad oben) auf eine Freigabe legen, die <b>Domänencomputer</b> lesen dürfen
-            (z. B. <code>\\server\Software$\DNWsus\DnwSus-Agent.msi</code>). Pfad als UNC-Pfad angeben, nicht als Laufwerksbuchstabe.</li>
-        <li>Neue GPO anlegen und mit der OU der Clients verknüpfen (oder per Sicherheitsfilter auf die Update-Gruppen beschränken).</li>
-        <li><i>Computerkonfiguration → Richtlinien → Softwareeinstellungen → Softwareinstallation</i> → Neu → Paket → MSI auswählen → <b>Zugewiesen</b>.</li>
+        <li>Im Dashboard den <b>Freigabe-Pfad oben</b> kopieren (der Server hält die MSI dort automatisch aktuell).</li>
+        <li>Neue GPO anlegen und mit der OU der Clients verknüpfen (Zuweisung der Update-Gruppen über Zielgruppenadressierung).</li>
+        <li><i>Computerkonfiguration → Richtlinien → Softwareeinstellungen → Softwareinstallation</i> → Neu → Paket → den Freigabe-Pfad eintragen → <b>Zugewiesen</b>.</li>
         <li>Die Installation läuft beim nächsten Neustart des Clients. Danach meldet sich der Agent innerhalb von 5 Minuten hier.</li>
-        <li><b>Update des Agenten:</b> neue MSI herunterladen, in der GPO als neues Paket hinzufügen und unter <i>Aktualisierungen</i> das alte Paket angeben
-            (bzw. einfach das alte Paket ersetzen). Die MSI ersetzt vorhandene Versionen selbst.</li>
+        <li><b>Agent-Update:</b> nichts weiter nötig – der Server tauscht die MSI in der Freigabe bei jedem Update selbst aus; die GPO zeigt dauerhaft auf denselben Pfad.</li>
     </ol>
-    <p class="muted">Manuelle Installation: MSI auf dem Client per Doppelklick ausführen (Administratorrechte nötig).
+    <p class="muted">Manuelle Installation: MSI (Download oben) auf dem Client per Doppelklick ausführen (Administratorrechte nötig).
         Ein Agent ohne Update-Gruppe meldet nur seinen Stand und installiert nichts.</p>
     <p class="muted">Voraussetzung: Windows 10/11 (zum Testen auch Windows Server ab 2016) mit .NET Framework 4.6.2 oder neuer (dort ab Werk enthalten),
-        Verbindung zu diesem Server auf Port @(new Uri(Model.Identity.Url).Port) (im Büro oder per VPN).</p>
+        Verbindung zu diesem Server auf Port @(new Uri(Model.Identity.Url).Port) (im Büro oder per VPN) und SMB (Port 445) zur Freigabe.</p>
 </section>
 
 <h3>Letzte Ereignisse</h3>

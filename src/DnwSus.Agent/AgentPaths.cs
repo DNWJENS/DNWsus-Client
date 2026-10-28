@@ -29,6 +29,16 @@ namespace DnwSus.Agent
                 return (key?.GetValue(name) as string ?? "").Trim();
         }
 
+        /// <summary>Server-Adresse und Zertifikat umschreiben (Serverumzug). Der Dienst läuft als SYSTEM und darf HKLM schreiben.</summary>
+        public static void SetServer(string url, string certHash)
+        {
+            using (var key = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).CreateSubKey(ConfigKey))
+            {
+                key.SetValue("ServerUrl", url ?? "");
+                key.SetValue("CertHash", certHash ?? "");
+            }
+        }
+
         /// <summary>
         /// Datenordner anlegen: SYSTEM und Administratoren Vollzugriff, Benutzer nur lesen
         /// (sonst könnte ein Benutzer die Statusdatei des Agenten manipulieren).

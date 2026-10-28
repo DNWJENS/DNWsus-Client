@@ -77,6 +77,12 @@ public sealed class AgentResponse
     public bool ScanRequested { get; set; }
 
     public string ServerTime { get; set; } = "";
+
+    /// <summary>Serverumzug: Adresse des neuen Servers. Gesetzt = der Agent soll künftig dorthin melden. Leer = kein Umzug.</summary>
+    public string MoveToUrl { get; set; } = "";
+
+    /// <summary>Serverumzug: SHA-256-Fingerabdruck des Zertifikats des neuen Servers (der Agent übernimmt nur bei Übereinstimmung).</summary>
+    public string MoveToCertHash { get; set; } = "";
 }
 
 public sealed class InstallRun

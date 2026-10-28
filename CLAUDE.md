@@ -59,13 +59,20 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   bzw. `DNW-brand`), sortierbare Spalten, Agent-Version-Spalte.
 - v2.1.9: Bulk-Soforthilfe („…“-Menü): Clients anhaken, Updatestart + Reboot-Zeit; manuelle, gruppenunabhängige Läufe,
   die das Gruppen-Neustart-Verhalten übersteuern. Agent-Format um `InstallRuns` (Id/Manual/RebootAt) erweitert.
-- v2.1.10: Agent-Verteilung-Seite kopiert die gebundene MSI an einen Zielpfad (fester Name, überschreibt): ohne
-  Zugangsdaten mit Server-Identität (eigene Freigabe, unbeaufsichtigt möglich) oder mit einmaligen Credentials
-  (NETLOGON; **Passwörter werden nie gespeichert**; Double-Hop verhindert SSO zur Remote-Freigabe).
+- v2.2.0: **Server legt seine Agent-Freigabe selbst an.** `AgentShareService` erzeugt beim Start Ordner
+  `C:\ProgramData\DNWsus\Share` (NTFS: Jeder lesen, SYSTEM/Admins voll) + öffentliche SMB-Freigabe `\\<server>\DNWsus`
+  (`Services/WindowsShare.cs`, NetShareAdd/502) und legt die aktuelle Agent-MSI dort ab (beim Start + stündlich, fester Name).
+  Pro Domäne nur noch **eine** GPO mit dem im Dashboard angezeigten Pfad. Firewall (SMB 445) macht der Admin. Ein abweichender
+  Zielpfad (zentraler Dateiserver) ist im Dashboard als optionaler Override setzbar (Vorrang vor der Freigabe).
+- v2.2.0: **MSI-Härtung** – Agent-`ServiceControl` nur noch `Stop=”uninstall”` (nicht `both`): gleichversionierter
+  `msiexec /i` ist ein echtes No-Op, der Dienst läuft durch; beim Upgrade stoppt MajorUpgrade die alte Version.
+- v2.2.0: **Serverumzug** ohne neue MSI. Am alten Server im Dashboard (Seite „Agent”) Adresse + SHA-256 des neuen Servers
+  eintragen → `AgentResponse.MoveToUrl/MoveToCertHash` → der Agent prüft den neuen Server (erreichbar + Fingerabdruck passt),
+  schreibt dann `HKLM\SOFTWARE\DNWsus\Agent` (ServerUrl/CertHash) um und meldet sich künftig dort. Offline-Clients ziehen nach.
+  Notweg bleibt neue Agent-MSI per GPO.
 - **Remote-Agent-Push aus dem Dashboard (ADMIN$ + WinRM/WMI o. Ä.) wird NICHT gebaut** – feste Grenze (laterale-Bewegung-Technik).
   Verteilung läuft über GPO; für Massen-Push ist das Kunden-RMM/Intune zuständig.
-- Offen (nach den ersten Kundentests): **„Agent veraltet“-Markierung entschärfen** (Agent/Server teilen die Version →
-  jedes Dashboard-Update flaggt alle Agenten als „alt“; separate Agent-Mindestversion o. Ä.) und **MSI-Härtung**, damit ein
-  gleichversionierter `msiexec /i`-Lauf ein echtes No-Op ist (Dienst nicht kurz neu starten).
-- Offen: **Serverumzug** (Agenten auf neuen Server – alter Server liefert neue URL + Fingerabdruck aus; Notweg: neue Agent-MSI per GPO).
-- Offen: Logo im Hinweis (Benutzer liefert transparente Version), Code-Signatur (öffentliches Zertifikat oder Trusted Signing).
+- Offen (zurückgestellt): **„Agent veraltet”-Markierung entschärfen** (Agent/Server teilen die Version →
+  jedes Dashboard-Update flaggt alle Agenten als „alt”; separate Agent-Mindestversion o. Ä.).
+- Offen (wartet auf Lieferung): Logo im Hinweis (Benutzer liefert transparente Version), Code-Signatur
+  (öffentliches Zertifikat oder Trusted Signing – Benutzer beschafft, Signier-Schritt wird dann im Build verdrahtet).

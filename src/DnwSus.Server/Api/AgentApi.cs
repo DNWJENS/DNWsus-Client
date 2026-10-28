@@ -45,6 +45,15 @@ public static class AgentApi
             ServerTime = now.ToString("yyyy-MM-ddTHH:mm:ss")
         };
 
+        // Serverumzug: Ist ein neuer Server hinterlegt, wird er den Agenten mitgeteilt – sie übernehmen ihn selbst.
+        var moveUrl = db.GetSetting(MigrationSettings.UrlKey);
+        var moveHash = db.GetSetting(MigrationSettings.CertHashKey);
+        if (!string.IsNullOrWhiteSpace(moveUrl) && !string.IsNullOrWhiteSpace(moveHash))
+        {
+            response.MoveToUrl = moveUrl;
+            response.MoveToCertHash = moveHash;
+        }
+
         // Gruppen-Läufe gelten nur mit gültiger Gruppe; manuelle Soforthilfe-Läufe gelten unabhängig davon.
         var open = db.GetOpenRuns(name, group > 0 ? group : 0, now);
         response.InstallRuns = open.Select(r => new InstallRun
