@@ -80,7 +80,16 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   durchzustarten: ab der gesetzten Reboot-Zeit (oder sofort, wenn keine gesetzt) → angemeldete Benutzer bekommen die
   Verzögerungsoptionen ihrer Gruppe, ohne Benutzer wird neu gestartet. Agent: `RebootNotBefore`-Gate + `_rebootTemplate`
   (Worker). **Gruppenlose Clients werden nicht mehr betankt** (nur GRP_Update1–3; Beobachtung = GRP_Update0).
+- v2.4.1: **AD-Registrierung (SCP).** `DirectoryRegistrationService` veröffentlicht beim Start einen Service Connection Point
+  (`CN=DNWsus`, Keyword `DNWsus-Server`) unter dem Computerkonto, damit Werkzeuge per LDAP erkennen, dass in der Domäne
+  schon ein DNWsus-Server läuft (ohne Portscan). Gegenstück: die DNWironment2.0-Konsole sucht diesen SCP.
 - **Offen (nächster Schritt):** optischer Feinschliff der übrigen Tabs (Karten/Badges wie im Mockup).
+
+## DNWironment2.0 (neues Schwester-Projekt, `D:\claude-projekte\DNWironment2.0`)
+- Portable Konsole (Nachfolger von DNWironment, .NET 8, Single-File, Look übernommen). Rubriken; **DNWsus bleibt der separate
+  Dienst** dahinter. Portabel = localhost:1312 + „Benutzer ist Domänen-Admin"-Check; als Dienst später HTTPS/Negotiate.
+  Rubrik **Updates**: erkennt per AD-SCP vorhandene Server (warnt vor Zweit-Installation), sonst Hinweis + Installation/Upgrade
+  der **eingebetteten** DNWsus-MSI (UAC). Config/Cache unter `C:\temp\dnwironment`. Kein Git (Testphase).
 
 ## Stand / offen
 - Getestet und läuft: GPO-Verteilung (Zielgruppenadressierung nach GRP_Update1-3, selbstheilende Aufgabe
