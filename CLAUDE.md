@@ -72,7 +72,15 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
   (Klasse × Install/Reboot) + Klassen-Auswahl im Zeitplan. Design-Referenz: `docs/mockups/dashboard-regeln.html`.
 - v2.3.1: **Dashboard von überall erreichbar** (vorher nur lokal). `Program.cs` entfernt die `LocalAccess.IsLocal`-Sperre;
   Negotiate + Domänen-Admins-Prüfung bleiben – lokal SSO, remote Anmeldeabfrage, Nicht-Admins bekommen erneut die Abfrage.
-- **Offen (nächster Schritt):** kompletter optischer Umbau der übrigen Tabs (Karten/Badges wie im Mockup), bisher nur der Regel-Editor.
+- v2.4.0: **Einstellungs-Tab** (⚙) bündelt die dauerhafte Konfiguration pro Gruppe: **Neustart-Vorlage** frei wählbar
+  (die drei festen Verhalten 1=Zustimmung/2=Frist 2 h/3=Auto 5 Min., Standard = Gruppennummer; `DB.GetRebootTemplate`,
+  settings-Key `RebootTemplate:<g>`, `AgentResponse.RebootTemplate`), Klassen-Regeln und Zeitpläne. Gruppen-Tabs sind dadurch
+  schlank (nur Client-Liste + Aktionen). Neuer **LOG-Tab** (alle Läufe + Ereignisse); „Letzte Läufe" raus aus den Gruppen-Tabs.
+- v2.4.0: **Manueller Lauf** installiert sofort, der **Neustart** nutzt jetzt das **Gruppenverhalten** statt hart
+  durchzustarten: ab der gesetzten Reboot-Zeit (oder sofort, wenn keine gesetzt) → angemeldete Benutzer bekommen die
+  Verzögerungsoptionen ihrer Gruppe, ohne Benutzer wird neu gestartet. Agent: `RebootNotBefore`-Gate + `_rebootTemplate`
+  (Worker). **Gruppenlose Clients werden nicht mehr betankt** (nur GRP_Update1–3; Beobachtung = GRP_Update0).
+- **Offen (nächster Schritt):** optischer Feinschliff der übrigen Tabs (Karten/Badges wie im Mockup).
 
 ## Stand / offen
 - Getestet und läuft: GPO-Verteilung (Zielgruppenadressierung nach GRP_Update1-3, selbstheilende Aufgabe

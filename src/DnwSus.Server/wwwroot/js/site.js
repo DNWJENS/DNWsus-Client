@@ -42,15 +42,19 @@
         apply();
     }
 
-    // Zeitplan-Formular: Wochentage oder Patchday-Versatz anzeigen
-    var kind = document.getElementById("scheduleKind");
-    if (kind) {
-        kind.addEventListener("change", function () {
+    // Zeitplan-Formulare (mehrere möglich): Wochentage oder Patchday-Versatz anzeigen
+    document.querySelectorAll(".schedule-form .schedule-kind").forEach(function (kind) {
+        var form = kind.closest(".schedule-form");
+        var weekdays = form.querySelector(".weekdays");
+        var offset = form.querySelector(".patchday-offset");
+        var update = function () {
             var patchday = kind.value === "patchday";
-            document.getElementById("weekdays").hidden = patchday;
-            document.getElementById("patchdayOffset").hidden = !patchday;
-        });
-    }
+            if (weekdays) weekdays.hidden = patchday;
+            if (offset) offset.hidden = !patchday;
+        };
+        kind.addEventListener("change", update);
+        update();
+    });
 })();
 
 // Sortierbare Spalten für alle .grid-Tabellen mit Kopfzeile. Klick auf einen Spaltenkopf sortiert,

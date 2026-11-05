@@ -95,6 +95,9 @@ public sealed class AgentResponse
 
     /// <summary>Reine Beobachtung (GRP_Update0): der Agent meldet nur seinen Stand und installiert nichts.</summary>
     public bool MonitorOnly { get; set; }
+
+    /// <summary>Konfigurierte Neustart-Vorlage der Gruppe (1=Zustimmung, 2=Frist 2 h, 3=Auto 5 Min.). 0 = nicht gesetzt.</summary>
+    public int RebootTemplate { get; set; }
 }
 
 /// <summary>Regel für eine Update-Klasse: wann installiert wird und wie der Neustart gehandhabt wird.</summary>

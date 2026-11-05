@@ -52,12 +52,14 @@ public sealed class ClientModel : PageModel
     public IActionResult OnPostInstall(string name)
     {
         var client = _ad.GetSnapshot().Clients.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-        if (client is not { Groups.Count: 1 })
+        if (client is not { Groups.Count: 1 } || client.Groups[0] is < 1 or > 3)
         {
-            Message = "Installation nur für Clients in genau einer Update-Gruppe möglich.";
+            Message = "Installation nur für Clients in genau einer aktiven Update-Gruppe (GRP_Update1–3) möglich.";
             return RedirectToPage(new { name });
         }
-        _db.CreateRun(client.Groups[0], client.Name, DateTime.Now, User.Identity?.Name ?? "", "manuell");
+        int group = client.Groups[0];
+        string classes = string.Join(",", _db.GetPolicies(group).Where(p => p.Value.Install != UpdatePolicy.Off).Select(p => p.Key));
+        _db.CreateRun(group, client.Name, DateTime.Now, User.Identity?.Name ?? "", "manuell", classes: classes);
         Message = "Lauf angelegt. Der Client installiert bei seiner nächsten Meldung (spätestens nach 5 Minuten).";
         return RedirectToPage(new { name });
     }

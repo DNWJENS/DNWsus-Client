@@ -44,8 +44,27 @@ public sealed class IndexModel : PageModel
     /// <summary>Regeln der aktuellen Gruppe (Klasse → Install/Reboot), für den Regel-Editor.</summary>
     public Dictionary<string, UpdatePolicy.Rule> Policies { get; private set; } = new();
 
+    // Einstellungs-Tab: Konfiguration aller aktiven Gruppen.
+    public Dictionary<int, Dictionary<string, UpdatePolicy.Rule>> AllPolicies { get; private set; } = new();
+    public Dictionary<int, List<Schedule>> AllSchedules { get; private set; } = new();
+    public Dictionary<int, int> RebootTemplates { get; private set; } = new();
+
+    // LOG-Tab.
+    public List<Run> AllRuns { get; private set; } = new();
+    public List<EventEntry> Events { get; private set; } = new();
+
+    /// <summary>Aktive Update-Gruppen (1..3), ohne Beobachtungs-Gruppe 0.</summary>
+    public IEnumerable<GroupInfo> ActiveGroups => Snapshot.Groups.Where(g => g.Number > 0).OrderBy(g => g.Number);
+
     public static string[] PolicyClasses => UpdatePolicy.Classes;
     public static string ClassLabel(string cls) => UpdatePolicy.Label(cls);
+    public static string RebootTemplateLabel(int t) => t switch
+    {
+        1 => "Zustimmung (Popup, Erinnerung alle 30 Min., max. 24 h)",
+        2 => "Frist 2 h (Auswahl sofort/15/60/120, dann automatisch)",
+        3 => "Automatisch nach 5 Min. (mit Hinweis)",
+        _ => "—"
+    };
 
     [TempData] public string? Message { get; set; }
 
@@ -95,6 +114,20 @@ public sealed class IndexModel : PageModel
                 break;
             case "ohne":
                 clients = Snapshot.Clients.Where(c => c.Groups.Count == 0);
+                break;
+            case "einstellungen":
+                foreach (var g in ActiveGroups)
+                {
+                    AllPolicies[g.Number] = _db.GetPolicies(g.Number);
+                    AllSchedules[g.Number] = _db.GetSchedules(g.Number);
+                    RebootTemplates[g.Number] = _db.GetRebootTemplate(g.Number);
+                }
+                clients = Enumerable.Empty<ClientInfo>();
+                break;
+            case "log":
+                AllRuns = _db.GetAllRuns(100);
+                Events = _db.GetEvents(null, 200);
+                clients = Enumerable.Empty<ClientInfo>();
                 break;
             default:
                 Tab = "uebersicht";
@@ -171,18 +204,32 @@ public sealed class IndexModel : PageModel
             saved++;
         }
         Message = $"Regeln gespeichert ({saved} Klassen). Die Agenten übernehmen sie bei ihrer nächsten Meldung.";
-        return RedirectToPage(new { tab = "grp" + group });
+        return RedirectToPage(new { tab = "einstellungen" });
+    }
+
+    /// <summary>Neustart-Vorlage einer Gruppe setzen (1=Zustimmung, 2=Frist 2 h, 3=Auto 5 Min.).</summary>
+    public IActionResult OnPostRebootTemplate(int group, int template)
+    {
+        if (group is < 1 or > 3) return BadRequest();
+        if (template is < 1 or > 3)
+        {
+            Message = "Ungültige Neustart-Vorlage.";
+            return RedirectToPage(new { tab = "einstellungen" });
+        }
+        _db.SetRebootTemplate(group, template);
+        Message = $"Neustart-Vorlage für Gruppe {group} gespeichert. Die Agenten übernehmen sie bei ihrer nächsten Meldung.";
+        return RedirectToPage(new { tab = "einstellungen" });
     }
 
     /// <summary>Kommagetrennte Klassen der Gruppe, die nicht auf „Aus" stehen (für manuelle Läufe).</summary>
     private string NonOffClasses(int group) =>
         string.Join(",", _db.GetPolicies(group).Where(p => p.Value.Install != UpdatePolicy.Off).Select(p => p.Key));
 
-    public IActionResult OnPostCancelRun(int group, long id)
+    public IActionResult OnPostCancelRun(long id)
     {
         _db.CancelRun(id);
         Message = $"Lauf {id} beendet. Clients, die ihn noch nicht abgeholt haben, installieren nicht mehr.";
-        return RedirectToPage(new { tab = "grp" + group });
+        return RedirectToPage(new { tab = "log" });
     }
 
     /// <summary>
@@ -209,19 +256,17 @@ public sealed class IndexModel : PageModel
             // Nur Clients mit Agent; sonst lässt sich nichts installieren.
             if (_db.GetStatus(name)?.LastContact == null) { skipped++; continue; }
             var client = snapshot.Clients.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            // Beobachtungs-Clients (GRP_Update0) werden nie betankt.
-            if (client?.IsMonitorOnly == true) { skipped++; continue; }
             int group = client is { Groups.Count: 1 } ? client.Groups[0] : 0;
-            // In einer Gruppe „Aus"-Klassen aussparen; gruppenlose Clients (manuell betankt) bekommen alles.
-            string classes = group > 0 ? NonOffClasses(group) : "";
-            _db.CreateRun(group, name, start, by, "Soforthilfe", isManual: true, rebootAt: reboot, classes: classes);
+            // Nur Clients in genau einer aktiven Gruppe (1..3). Beobachtung (0), gruppenlos und Konflikte werden nie betankt.
+            if (group is < 1 or > 3) { skipped++; continue; }
+            _db.CreateRun(group, name, start, by, "Soforthilfe", isManual: true, rebootAt: reboot, classes: NonOffClasses(group));
             created++;
         }
 
         string when = start <= DateTime.Now ? "sofort" : "ab " + start.ToString("dd.MM.yyyy HH:mm");
         string reb = reboot.HasValue ? $", Neustart falls nötig um {reboot.Value:dd.MM.yyyy HH:mm}" : ", kein erzwungener Neustart";
         Message = $"Soforthilfe für {created} Client(s) angelegt (Updatestart {when}{reb})." +
-                  (skipped > 0 ? $" {skipped} ohne Agent übersprungen." : "");
+                  (skipped > 0 ? $" {skipped} übersprungen (kein Agent oder keine aktive Gruppe – Beobachtung/gruppenlos wird nie betankt)." : "");
         return RedirectToPage(new { tab });
     }
 
@@ -263,14 +308,14 @@ public sealed class IndexModel : PageModel
         _db.AddSchedule(schedule);
         Message = "Zeitplan angelegt: " + schedule.Description + ". Nächster Termin: " +
                   schedule.NextAfter(DateTime.Now).ToString("dd.MM.yyyy HH:mm") + ".";
-        return RedirectToPage(new { tab = "grp" + group });
+        return RedirectToPage(new { tab = "einstellungen" });
     }
 
     public IActionResult OnPostDeleteSchedule(int group, long id)
     {
         _db.DeleteSchedule(id);
         Message = "Zeitplan gelöscht.";
-        return RedirectToPage(new { tab = "grp" + group });
+        return RedirectToPage(new { tab = "einstellungen" });
     }
 
     // ------------------------------------------------------------------ Anzeige

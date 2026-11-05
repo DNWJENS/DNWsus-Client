@@ -24,6 +24,9 @@ namespace DnwSus.Agent
         /// <summary>Vom Benutzer gewählter bzw. automatisch festgelegter Neustart-Zeitpunkt.</summary>
         public string RebootScheduledAt { get; set; } = "";
 
+        /// <summary>Frühester Neustart-Zeitpunkt eines manuellen Laufs: vorher passiert nichts, danach gilt das Gruppenverhalten.</summary>
+        public string RebootNotBefore { get; set; } = "";
+
         public string LastPromptAt { get; set; } = "";
         public bool CountdownShown { get; set; }
         public string RebootInitiatedAt { get; set; } = "";
@@ -51,6 +54,7 @@ namespace DnwSus.Agent
             RebootPendingSince = "";
             RebootGroup = 0;
             RebootScheduledAt = "";
+            RebootNotBefore = "";
             LastPromptAt = "";
             CountdownShown = false;
             RebootInitiatedAt = "";

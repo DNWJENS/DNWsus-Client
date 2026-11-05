@@ -277,27 +277,41 @@ FROM runs r WHERE r.group_no=$g" + (activeOnly ? " AND r.cancelled=0" : "") + @"
 ORDER BY r.id DESC LIMIT $limit;", ("$g", group), ("$limit", limit));
             using var reader = cmd.ExecuteReader();
             var runs = new List<Run>();
-            while (reader.Read())
-            {
-                runs.Add(new Run
-                {
-                    Id = reader.GetInt64(reader.GetOrdinal("id")),
-                    GroupNumber = reader.GetInt32(reader.GetOrdinal("group_no")),
-                    Client = reader.IsDBNull(reader.GetOrdinal("client")) ? null : reader.GetString(reader.GetOrdinal("client")),
-                    StartAt = ParseDate(reader["start_at"]) ?? DateTime.MinValue,
-                    CreatedAt = ParseDate(reader["created_at"]) ?? DateTime.MinValue,
-                    CreatedBy = reader["created_by"] as string ?? "",
-                    Source = reader["source"] as string ?? "",
-                    Cancelled = Convert.ToInt64(reader["cancelled"]) == 1,
-                    DoneCount = Convert.ToInt32(reader["done"]),
-                    IsManual = Convert.ToInt64(reader["is_manual"]) == 1,
-                    RebootAt = ParseDate(reader["reboot_at"]),
-                    Classes = reader["classes"] as string ?? ""
-                });
-            }
+            while (reader.Read()) runs.Add(MapRun(reader));
             return runs;
         }
     }
+
+    /// <summary>Alle Läufe über alle Gruppen – für den LOG-Tab.</summary>
+    public List<Run> GetAllRuns(int limit = 100)
+    {
+        lock (_lock)
+        {
+            using var cmd = Command(@"
+SELECT r.*, (SELECT COUNT(*) FROM run_done d WHERE d.run_id=r.id) AS done
+FROM runs r ORDER BY r.id DESC LIMIT $limit;", ("$limit", limit));
+            using var reader = cmd.ExecuteReader();
+            var runs = new List<Run>();
+            while (reader.Read()) runs.Add(MapRun(reader));
+            return runs;
+        }
+    }
+
+    private Run MapRun(SqliteDataReader reader) => new()
+    {
+        Id = reader.GetInt64(reader.GetOrdinal("id")),
+        GroupNumber = reader.GetInt32(reader.GetOrdinal("group_no")),
+        Client = reader.IsDBNull(reader.GetOrdinal("client")) ? null : reader.GetString(reader.GetOrdinal("client")),
+        StartAt = ParseDate(reader["start_at"]) ?? DateTime.MinValue,
+        CreatedAt = ParseDate(reader["created_at"]) ?? DateTime.MinValue,
+        CreatedBy = reader["created_by"] as string ?? "",
+        Source = reader["source"] as string ?? "",
+        Cancelled = Convert.ToInt64(reader["cancelled"]) == 1,
+        DoneCount = Convert.ToInt32(reader["done"]),
+        IsManual = Convert.ToInt64(reader["is_manual"]) == 1,
+        RebootAt = ParseDate(reader["reboot_at"]),
+        Classes = reader["classes"] as string ?? ""
+    };
 
     // ------------------------------------------------------------------ Zeitpläne
 
@@ -399,6 +413,16 @@ ORDER BY r.id DESC LIMIT $limit;", ("$g", group), ("$limit", limit));
                       ON CONFLICT(group_no, class) DO UPDATE SET install=$i, reboot=$r;",
                 ("$g", group), ("$c", cls), ("$i", install), ("$r", reboot));
     }
+
+    /// <summary>Konfigurierte Neustart-Vorlage der Gruppe (1..3); Standard = Gruppennummer.</summary>
+    public int GetRebootTemplate(int group)
+    {
+        var v = GetSetting("RebootTemplate:" + group);
+        return int.TryParse(v, out var t) && t is >= 1 and <= 3 ? t : group;
+    }
+
+    public void SetRebootTemplate(int group, int template) =>
+        SetSetting("RebootTemplate:" + group, template.ToString());
 
     // ------------------------------------------------------------------ Ereignisse
 

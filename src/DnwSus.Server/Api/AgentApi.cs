@@ -70,11 +70,14 @@ public static class AgentApi
             }).ToList();
             response.InstallRunIds = open.Select(r => r.Id).ToList();
 
-            // Regeln pro Klasse für die Gruppe mitgeben (nur bei gültiger Gruppe; der Agent handelt danach selbstständig).
+            // Regeln pro Klasse + konfigurierte Neustart-Vorlage der Gruppe mitgeben.
             if (group is >= 1 and <= 3)
+            {
                 response.Policy = db.GetPolicies(group)
                     .Select(p => new ClassPolicy { Class = p.Key, Install = p.Value.Install, Reboot = p.Value.Reboot })
                     .ToList();
+                response.RebootTemplate = db.GetRebootTemplate(group);
+            }
         }
 
         return Results.Json(response);

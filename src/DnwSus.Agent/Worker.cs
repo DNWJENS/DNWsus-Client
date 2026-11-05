@@ -38,6 +38,7 @@ namespace DnwSus.Agent
         private bool _hintRunning;
         private int _failedInstallAttempts;
         private volatile Dictionary<string, ClassPolicy> _policy = new Dictionary<string, ClassPolicy>();
+        private volatile int _rebootTemplate; // konfigurierte Neustart-Vorlage der Gruppe (1..3), 0 = Gruppennummer verwenden
 
         public void Start()
         {
@@ -141,6 +142,7 @@ namespace DnwSus.Agent
             if (response.Policy != null)
                 foreach (var p in response.Policy) policy[p.Class] = p;
             _policy = policy;
+            _rebootTemplate = response.RebootTemplate;
 
             // Serverumzug hat Vorrang: nur übernehmen, wenn der neue Server erreichbar ist und sein Zertifikat passt.
             if (!string.IsNullOrEmpty(response.MoveToUrl) && !string.IsNullOrEmpty(response.MoveToCertHash)
@@ -217,7 +219,10 @@ namespace DnwSus.Agent
             if (_state.RebootPendingSince.Length > 0)
             {
                 var scheduled = AgentState.Parse(_state.RebootScheduledAt);
-                return scheduled.HasValue ? "Neustart geplant für " + scheduled.Value.ToString("dd.MM. HH:mm") : "Neustart ausstehend";
+                if (scheduled.HasValue) return "Neustart geplant für " + scheduled.Value.ToString("dd.MM. HH:mm");
+                var notBefore = AgentState.Parse(_state.RebootNotBefore);
+                if (notBefore.HasValue && notBefore.Value > DateTime.Now) return "Neustart ab " + notBefore.Value.ToString("dd.MM. HH:mm");
+                return "Neustart ausstehend";
             }
             if (_state.ObservedRebootSince.Length > 0) return "Neustart ausstehend";
             return "Bereit";
@@ -340,16 +345,17 @@ namespace DnwSus.Agent
                 {
                     _state.ClearReboot();
                     _state.RebootPendingSince = AgentState.Format(DateTime.Now);
-                    if (manualRebootAt.HasValue)
+                    int effective = EffectiveRebootGroup(report.InstalledClasses, group);
+                    if (effective < 0)
                     {
-                        _state.RebootGroup = 0; // 0 = fester Zeitpunkt ohne Zustimmungs-Popup
-                        _state.RebootScheduledAt = AgentState.Format(manualRebootAt.Value);
+                        _state.RebootPendingSince = ""; // alle installierten Klassen auf „kein Neustart"
                     }
                     else
                     {
-                        int effective = EffectiveRebootGroup(report.InstalledClasses, group);
-                        if (effective < 0) _state.RebootPendingSince = ""; // alle installierten Klassen auf „kein Neustart"
-                        else _state.RebootGroup = effective;
+                        // Auch ein manueller Lauf nutzt das Gruppenverhalten – bei einer gesetzten Reboot-Zeit erst ab dann.
+                        _state.RebootGroup = effective;
+                        if (manualRebootAt.HasValue)
+                            _state.RebootNotBefore = AgentState.Format(manualRebootAt.Value);
                     }
                 }
                 _state.Save();
@@ -402,7 +408,8 @@ namespace DnwSus.Agent
         private int EffectiveRebootGroup(List<string> installedClasses, int group)
         {
             int best = int.MaxValue;
-            int template = group >= 1 && group <= 3 ? group : 1;
+            // „Wie Gruppe" nutzt die vom Server konfigurierte Vorlage, sonst die Gruppennummer.
+            int template = _rebootTemplate is >= 1 and <= 3 ? _rebootTemplate : (group >= 1 && group <= 3 ? group : 1);
             foreach (var cls in installedClasses)
             {
                 string mode = _policy.TryGetValue(cls, out var p) && p != null && p.Reboot != null ? p.Reboot : "template";
@@ -439,8 +446,13 @@ namespace DnwSus.Agent
                 var now = DateTime.Now;
                 var initiated = AgentState.Parse(_state.RebootInitiatedAt);
                 if (initiated.HasValue && now - initiated.Value < TimeSpan.FromMinutes(10)) return; // Neustart läuft
-                // Fester Neustart-Zeitpunkt (manueller Lauf oder Gruppe 2/3 nach Festlegung): dann neu starten,
-                // unabhängig davon, ob jemand angemeldet ist. Ist jemand da, 5 Minuten vorher ein Hinweis.
+
+                // Manueller Lauf mit gesetzter Reboot-Zeit: vor diesem Zeitpunkt passiert nichts; danach gilt das Gruppenverhalten.
+                var notBefore = AgentState.Parse(_state.RebootNotBefore);
+                if (notBefore.HasValue && now < notBefore.Value) return;
+
+                // Fester Neustart-Zeitpunkt (Gruppe 2/3 nach Festlegung): dann neu starten, unabhängig von einer Anmeldung.
+                // Ist jemand da, 5 Minuten vorher ein Hinweis.
                 var scheduled = AgentState.Parse(_state.RebootScheduledAt);
                 if (scheduled.HasValue)
                 {
@@ -482,7 +494,7 @@ namespace DnwSus.Agent
                         break;
 
                     case 2:
-                        var deadline = pendingSince.Value + Group2Deadline;
+                        var deadline = (notBefore ?? pendingSince.Value) + Group2Deadline;
                         if (deadline - now <= CountdownLength)
                         {
                             // Frist läuft ab: Neustart festlegen, Countdown folgt im nächsten Durchlauf
@@ -545,7 +557,8 @@ namespace DnwSus.Agent
                     var at = DateTime.Now.AddMinutes(exitCode - HintDelayBase);
                     if (_state.RebootGroup == 2)
                     {
-                        var deadline = AgentState.Parse(_state.RebootPendingSince).Value + Group2Deadline;
+                        var baseTime = AgentState.Parse(_state.RebootNotBefore) ?? AgentState.Parse(_state.RebootPendingSince).Value;
+                        var deadline = baseTime + Group2Deadline;
                         if (at > deadline) at = deadline;
                     }
                     _state.RebootScheduledAt = AgentState.Format(at);
