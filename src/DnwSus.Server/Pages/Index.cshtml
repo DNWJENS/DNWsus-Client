@@ -35,6 +35,10 @@
 {
     <div class="banner error">@Model.Conflicts Client(s) sind in mehreren Update-Gruppen. Bitte im AD bereinigen – diese Clients werden nicht aktualisiert.</div>
 }
+@if (Model.Tab == "grp0")
+{
+    <div class="banner info">Reine <b>Beobachtung</b>: Diese Clients haben den Agenten und melden ihren Stand (ausstehende Updates, Neustart-Bedarf, IP, Uptime, Benutzer …), <b>installieren aber nichts</b>. Zum Aktivieren den Client im AD in eine aktive Gruppe (GRP_Update1–3) verschieben – das wirkt automatisch, ohne Neuinstallation.</div>
+}
 @if (Model.CurrentGroup is { HiddenMembers.Count: > 0 } cg)
 {
     <div class="banner warn">

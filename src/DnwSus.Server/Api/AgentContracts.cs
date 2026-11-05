@@ -92,6 +92,9 @@ public sealed class AgentResponse
 
     /// <summary>Regeln pro Update-Klasse für die Gruppe dieses Clients. Leer = alte Logik (alles bei einem Lauf).</summary>
     public List<ClassPolicy> Policy { get; set; } = new();
+
+    /// <summary>Reine Beobachtung (GRP_Update0): der Agent meldet nur seinen Stand und installiert nichts.</summary>
+    public bool MonitorOnly { get; set; }
 }
 
 /// <summary>Regel für eine Update-Klasse: wann installiert wird und wie der Neustart gehandhabt wird.</summary>

@@ -73,11 +73,17 @@ Registry-Einträge und `C:\ProgramData\DNWsus\Agent` werden entfernt.
 
 | Gruppe | Installation | Neustart |
 |---|---|---|
+| GRP_Update0 | **keine** – reine Beobachtung (Agent meldet nur Stand, IP, Uptime, ausstehende Updates …) | – |
 | GRP_Update1 | alle Updates | nur mit Zustimmung: Popup „Jetzt neu starten“ / „Zeitpunkt wählen“ (max. 24 h), Erinnerung alle 30 Min. |
 | GRP_Update2 | alle Updates | Benutzer wählt sofort / 15 / 60 / 120 Min., spätestens nach 2 h automatisch (5 Min. vorher Hinweis) |
 | GRP_Update3 | alle Updates | automatisch nach 5 Min. mit Hinweis und Knopf „Jetzt neu starten“ |
 
 Ist niemand angemeldet, startet der PC direkt neu. Clients in mehreren Gruppen werden nicht aktualisiert (Konflikt im Dashboard).
+
+**GRP_Update0** (reine Beobachtung): Gedacht, um erst Daten zu sammeln. Der Agent wird auf **allen** Domänenmitgliedern verteilt
+(GPO auf GRP_Update0–3 oder auf alle Computer), und die Steuerung läuft danach nur noch über die Gruppenzugehörigkeit.
+Verschiebt man einen Client von GRP_Update0 in eine aktive Gruppe, beginnt er automatisch zu arbeiten – **ohne** Neuinstallation
+oder Client-Neustart (der Server liest die Gruppe live aus dem AD, Wirkung nach spätestens ~5 Minuten bzw. „AD neu laden").
 
 Installationen starten über **Läufe**: im Gruppen-Tab „Ganze Gruppe installieren“ / „Ausgewählte installieren“
 (optional mit Updatestart-Zeit) oder automatisch über **Zeitpläne** (wöchentlich oder Patchday + X Tage).

@@ -38,11 +38,13 @@ public static class AgentApi
         var client = ad.GetSnapshot().Clients.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         int group = client == null ? 0 : client.Groups.Count switch { 0 => 0, 1 => client.Groups[0], _ => -1 };
 
+        bool monitorOnly = client?.IsMonitorOnly == true; // GRP_Update0: nur melden, nie installieren
         var response = new AgentResponse
         {
             Group = group,
             ScanRequested = db.IsScanRequested(name),
-            ServerTime = now.ToString("yyyy-MM-ddTHH:mm:ss")
+            ServerTime = now.ToString("yyyy-MM-ddTHH:mm:ss"),
+            MonitorOnly = monitorOnly
         };
 
         // Serverumzug: Ist ein neuer Server hinterlegt, wird er den Agenten mitgeteilt – sie übernehmen ihn selbst.
@@ -54,22 +56,26 @@ public static class AgentApi
             response.MoveToCertHash = moveHash;
         }
 
-        // Gruppen-Läufe gelten nur mit gültiger Gruppe; manuelle Soforthilfe-Läufe gelten unabhängig davon.
-        var open = db.GetOpenRuns(name, group > 0 ? group : 0, now);
-        response.InstallRuns = open.Select(r => new InstallRun
+        // Beobachtungs-Clients bekommen weder Läufe noch Regeln – sie melden nur ihren Stand.
+        if (!monitorOnly)
         {
-            Id = r.Id,
-            Manual = r.IsManual,
-            RebootAt = r.RebootAt.HasValue ? r.RebootAt.Value.ToString("yyyy-MM-ddTHH:mm:ss") : "",
-            Classes = r.Classes
-        }).ToList();
-        response.InstallRunIds = open.Select(r => r.Id).ToList();
+            // Gruppen-Läufe gelten nur mit gültiger Gruppe; manuelle Soforthilfe-Läufe gelten unabhängig davon.
+            var open = db.GetOpenRuns(name, group > 0 ? group : 0, now);
+            response.InstallRuns = open.Select(r => new InstallRun
+            {
+                Id = r.Id,
+                Manual = r.IsManual,
+                RebootAt = r.RebootAt.HasValue ? r.RebootAt.Value.ToString("yyyy-MM-ddTHH:mm:ss") : "",
+                Classes = r.Classes
+            }).ToList();
+            response.InstallRunIds = open.Select(r => r.Id).ToList();
 
-        // Regeln pro Klasse für die Gruppe mitgeben (nur bei gültiger Gruppe; der Agent handelt danach selbstständig).
-        if (group is >= 1 and <= 3)
-            response.Policy = db.GetPolicies(group)
-                .Select(p => new ClassPolicy { Class = p.Key, Install = p.Value.Install, Reboot = p.Value.Reboot })
-                .ToList();
+            // Regeln pro Klasse für die Gruppe mitgeben (nur bei gültiger Gruppe; der Agent handelt danach selbstständig).
+            if (group is >= 1 and <= 3)
+                response.Policy = db.GetPolicies(group)
+                    .Select(p => new ClassPolicy { Class = p.Key, Install = p.Value.Install, Reboot = p.Value.Reboot })
+                    .ToList();
+        }
 
         return Results.Json(response);
     }

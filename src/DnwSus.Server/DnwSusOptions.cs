@@ -16,6 +16,12 @@ public sealed class DnwSusOptions
     public List<string> Groups { get; set; } = new();
 
     /// <summary>
+    /// Beobachtungs-Gruppe (sAMAccountName): deren Mitglieder haben den Agenten, melden nur ihren Stand und
+    /// installieren nichts (reine Datensammlung). Intern Gruppen-Nummer 0. Leer = Funktion aus.
+    /// </summary>
+    public string MonitorGroup { get; set; } = "GRP_Update0";
+
+    /// <summary>
     /// AD-Gruppe (sAMAccountName), deren Mitglieder das Dashboard nutzen dürfen.
     /// Leer = Domänen-Admins der Domäne des Servers.
     /// </summary>

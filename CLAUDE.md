@@ -43,6 +43,11 @@ Repo: https://github.com/DNWJENS/DNWsus-Client (privat, wird mit Kollegen geteil
 - `setup/Agent`, `setup/Server` – WiX 5 (WixToolset.Sdk 5.0.2). `docs/Installation.md` – Installation, GPO, Testcheckliste.
 
 ## Gruppen (AD, verschachtelt über `memberOf:1.2.840.113556.1.4.1941:=`)
+- **GRP_Update0** (ab v2.3.2, `DnwSus:MonitorGroup`, intern Gruppen-Nr. 0): reine **Beobachtung** – Agent läuft und meldet
+  alles (ausstehende Updates, Neustart-Bedarf, IP, Uptime …), installiert aber **nie** (auch keine Soforthilfe). Server setzt
+  `AgentResponse.MonitorOnly`; der Agent überspringt dann jede Installation. Dashboard-Tab ist read-only. Verschiebt man einen
+  Client ins Aktive (GRP_Update1–3), wirkt das automatisch über die AD-Mitgliedschaft (Server liest sie live, ~5 Min. Cache),
+  ohne Neuinstallation/Neustart. Voraussetzung: Agent ist auf allen Domänenmitgliedern installiert.
 - **GRP_Update1**: alles installieren; Neustart nur mit Zustimmung. Popup „Jetzt“ / „Zeitpunkt wählen“ (max. 24 h),
   Erinnerung alle 30 Min.
 - **GRP_Update2**: alles installieren; Benutzer wählt sofort / 15 / 60 / 120 Min., spätestens nach 2 h Neustart

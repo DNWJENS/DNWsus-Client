@@ -149,6 +149,15 @@ namespace DnwSus.Agent
 
             if (_work != null && _work.IsAlive) return;
 
+            // Beobachtungs-Gruppe (GRP_Update0): niemals installieren – nur Stand und Scan melden.
+            if (response.MonitorOnly)
+            {
+                var monScan = AgentState.Parse(_state.LastScanAt);
+                if (response.ScanRequested || monScan == null || DateTime.Now - monScan.Value > ScanInterval)
+                    StartWork(Scan);
+                return;
+            }
+
             // Offene Läufe bevorzugt über InstallRuns (mit Reboot-Zeit); gelten auch für gruppenlose Clients (manuell).
             var openRuns = response.InstallRuns != null && response.InstallRuns.Count > 0
                 ? response.InstallRuns

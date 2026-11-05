@@ -77,6 +77,12 @@ public sealed class IndexModel : PageModel
         IEnumerable<ClientInfo> clients;
         switch (Tab)
         {
+            case "grp0":
+                // Beobachtungs-Gruppe: nur Lese-Daten, keine Läufe/Regeln/Zeitpläne.
+                GroupNumber = 0;
+                CurrentGroup = Snapshot.Groups.FirstOrDefault(g => g.Number == 0);
+                clients = Snapshot.Clients.Where(c => c.Groups.Contains(0));
+                break;
             case "grp1":
             case "grp2":
             case "grp3":
@@ -203,6 +209,8 @@ public sealed class IndexModel : PageModel
             // Nur Clients mit Agent; sonst lässt sich nichts installieren.
             if (_db.GetStatus(name)?.LastContact == null) { skipped++; continue; }
             var client = snapshot.Clients.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            // Beobachtungs-Clients (GRP_Update0) werden nie betankt.
+            if (client?.IsMonitorOnly == true) { skipped++; continue; }
             int group = client is { Groups.Count: 1 } ? client.Groups[0] : 0;
             // In einer Gruppe „Aus"-Klassen aussparen; gruppenlose Clients (manuell betankt) bekommen alles.
             string classes = group > 0 ? NonOffClasses(group) : "";

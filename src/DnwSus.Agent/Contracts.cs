@@ -79,6 +79,9 @@ namespace DnwSus.Agent
 
         /// <summary>Regeln pro Update-Klasse für die Gruppe dieses Clients (leer = alte Logik: alles bei einem Lauf).</summary>
         public List<ClassPolicy> Policy { get; set; } = new List<ClassPolicy>();
+
+        /// <summary>Reine Beobachtung (GRP_Update0): der Agent meldet nur seinen Stand und installiert nichts.</summary>
+        public bool MonitorOnly { get; set; }
     }
 
     /// <summary>Regel für eine Update-Klasse: wann installiert, wie der Neustart gehandhabt wird.</summary>

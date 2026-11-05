@@ -18,8 +18,11 @@ public sealed class ClientInfo
     /// <summary>lastLogonTimestamp aus dem AD (wird vom AD nur alle ~14 Tage aktualisiert).</summary>
     public DateTime? LastAdLogon { get; init; }
 
-    /// <summary>Nummern der Update-Gruppen (1..3), in denen der Client Mitglied ist.</summary>
+    /// <summary>Nummern der Gruppen, in denen der Client Mitglied ist: 1..3 = aktive Update-Gruppen, 0 = Beobachtung.</summary>
     public List<int> Groups { get; } = new();
+
+    /// <summary>Nur in der Beobachtungs-Gruppe (GRP_Update0) → meldet nur, installiert nie.</summary>
+    public bool IsMonitorOnly => Groups.Count == 1 && Groups[0] == 0;
 
     public bool IsStale { get; set; }
 
@@ -94,7 +97,10 @@ public sealed class AdService
                 _snapshot = new AdSnapshot
                 {
                     Error = "AD-Abfrage fehlgeschlagen: " + ex.Message,
-                    Groups = _options.Groups.Select((g, i) => new GroupInfo { Number = i + 1, Name = g }).ToList()
+                    Groups = (string.IsNullOrWhiteSpace(_options.MonitorGroup)
+                            ? Enumerable.Empty<GroupInfo>()
+                            : new[] { new GroupInfo { Number = 0, Name = _options.MonitorGroup } })
+                        .Concat(_options.Groups.Select((g, i) => new GroupInfo { Number = i + 1, Name = g })).ToList()
                 };
             }
             return _snapshot;
@@ -237,6 +243,51 @@ public sealed class AdService
                 });
             }
             group.HiddenMembers.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // 3. Beobachtungs-Gruppe (Nummer 0): Mitglieder melden nur ihren Stand, installieren nie.
+        if (!string.IsNullOrWhiteSpace(_options.MonitorGroup))
+        {
+            var monitor = new GroupInfo { Number = 0, Name = _options.MonitorGroup };
+            string? monitorDn = FindGroupDn(root, monitor.Name);
+            if (monitorDn != null)
+            {
+                monitor.Found = true;
+                using var searcher = new DirectorySearcher(root,
+                    "(&(objectCategory=computer)(memberOf:" + InChainRule + ":=" + Escape(monitorDn) + "))",
+                    new[] { "distinguishedName", "name", "operatingSystem", "userAccountControl",
+                            "dNSHostName", "operatingSystemVersion", "lastLogonTimestamp" });
+                searcher.PageSize = 1000;
+                using var results = searcher.FindAll();
+                foreach (SearchResult sr in results)
+                {
+                    if (clients.TryGetValue(Get(sr, "distinguishedName"), out var client))
+                    {
+                        client.Groups.Add(0);
+                        continue;
+                    }
+
+                    string os = Get(sr, "operatingSystem");
+                    bool disabled = sr.Properties.Contains("userAccountControl") &&
+                                    sr.Properties["userAccountControl"][0] is int uac && (uac & 2) != 0;
+                    if (!disabled && os.Contains("Server", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var server = ToClientInfo(sr, isServer: true);
+                        server.Groups.Add(0);
+                        clients[server.DistinguishedName] = server;
+                        continue;
+                    }
+
+                    monitor.HiddenMembers.Add(new HiddenMember
+                    {
+                        Name = Get(sr, "name").ToUpperInvariant(),
+                        Reason = disabled ? "deaktiviert"
+                            : os.Length == 0 ? "kein Betriebssystem im AD (nie angemeldet?)" : os
+                    });
+                }
+                monitor.HiddenMembers.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+            }
+            groups.Insert(0, monitor); // Monitor-Gruppe zuerst
         }
 
         return new AdSnapshot
